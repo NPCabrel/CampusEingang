@@ -1,0 +1,50 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Immatrikulation abschließen",
+      "category": "Immatrikulation",
+      "deadline": "2026-10-01",
+      "link": "https://uni.example/immatrikulation",
+      "done": false,
+      "notes": "Unterlagen mitbringen"
+    },
+    {
+      "id": 2,
+      "title": "Chipkarte abholen",
+      "category": "Organisatorisch",
+      "deadline": "2024-01-01",
+      "link": "",
+      "done": false,
+      "notes": ""
+    },
+    {
+      "id": 3,
+      "title": "jdc",
+      "category": "All",
+      "deadline": "2026",
+      "link": "wih@rptu.de",
+      "notes": "jsv",
+      "done": false
+    },
+    {
+      "id": 4,
+      "title": "Klausur Logik 11.02",
+      "category": "All",
+      "deadline": "11.02.2024",
+      "link": "-",
+      "notes": "fnepikv",
+      "done": false
+    },
+    {
+      "id": 5,
+      "title": "ki",
+      "category": "informatk",
+      "deadline": "2025-12-12",
+      "link": "nbnh",
+      "notes": "efwqqegvgf",
+      "done": false
+    }
+  ],
+  "next_id": 6
+}
