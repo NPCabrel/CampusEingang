@@ -1,4 +1,4 @@
-# app.py - CampusEingang Version Finale (Multilingue + Timer + Email)
+# app.py - CampusEingang Version Finale (CORRIGÉE)
 
 import streamlit as st
 import pandas as pd
@@ -385,170 +385,6 @@ def t(key):
     lang = st.session_state.get('language', 'DE')
     return TRANSLATIONS[lang].get(key, key)
 
-# Sélecteur de langue dans la sidebar
-with st.sidebar:
-    st.markdown("### 🌐 Sprache / Langue / Language")
-    selected_lang = st.selectbox(
-        "",
-        options=list(LANGUAGES.keys()),
-        format_func=lambda x: LANGUAGES[x],
-        key='language'
-    )
-
-# ==================== CONFIGURATION EMAIL ====================
-# Configuration SendGrid (à mettre dans les secrets Streamlit)
-SENDGRID_API_KEY = st.secrets.get("SENDGRID_API_KEY", "TA_CLE_API_ICI")
-FROM_EMAIL = "campus@eingang.de"  # À vérifier dans SendGrid
-TO_EMAIL = "naguepascal5@gmail.com"  # TON EMAIL POUR RECEVOIR LES FEEDBACKS
-
-def send_feedback_email(name, email, feedback_type, feedback, urgency, lang='DE'):
-    """
-    Envoie un email avec les détails du feedback à naguepascal5@gmail.com
-    """
-    try:
-        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
-        
-        # Traductions pour l'email selon la langue de l'utilisateur
-        urgency_labels = {
-            'DE': ['Niedrig', 'Mittel', 'Hoch', 'Kritisch'],
-            'FR': ['Basse', 'Moyenne', 'Haute', 'Critique'],
-            'EN': ['Low', 'Medium', 'High', 'Critical'],
-            'ES': ['Baja', 'Media', 'Alta', 'Crítica'],
-            'IT': ['Bassa', 'Media', 'Alta', 'Critica']
-        }
-        
-        type_labels = {
-            'DE': ['Verbesserungsvorschlag', 'Bug melden', 'Frage', 'Lob', 'Kritik'],
-            'FR': ['Suggestion', 'Bug', 'Question', 'Éloge', 'Critique'],
-            'EN': ['Suggestion', 'Bug Report', 'Question', 'Praise', 'Criticism'],
-            'ES': ['Sugerencia', 'Reportar error', 'Pregunta', 'Elogio', 'Crítica'],
-            'IT': ['Suggerimento', 'Segnala bug', 'Domanda', 'Lode', 'Critica']
-        }
-        
-        # Construction de l'email HTML
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                          color: white; padding: 25px; border-radius: 15px 15px 0 0; }}
-                .content {{ background: #f8f9fa; padding: 25px; border-radius: 0 0 15px 15px; }}
-                .field {{ margin: 20px 0; }}
-                .label {{ font-weight: bold; color: #667eea; font-size: 1.1em; }}
-                .value {{ background: white; padding: 12px; border-radius: 8px; margin-top: 5px;
-                         border-left: 4px solid #667eea; }}
-                .urgency {{ display: inline-block; padding: 5px 15px; border-radius: 20px; 
-                          font-weight: bold; }}
-                .urgency-Hoch, .urgency-Haute, .urgency-High, .urgency-Alta {{ 
-                    background: #ff6b6b; color: white; }}
-                .urgency-Mittel, .urgency-Moyenne, .urgency-Medium, .urgency-Media {{ 
-                    background: #feca57; color: black; }}
-                .urgency-Niedrig, .urgency-Basse, .urgency-Low, .urgency-Baja {{ 
-                    background: #48dbfb; color: black; }}
-                .urgency-Kritisch, .urgency-Critique, .urgency-Critical, .urgency-Crítica {{ 
-                    background: #ff0000; color: white; }}
-                .footer {{ text-align: center; margin-top: 20px; color: #999; }}
-                .badge {{ background: #667eea; color: white; padding: 3px 10px; 
-                         border-radius: 15px; font-size: 0.8em; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1 style="margin:0;">📬 Neues Feedback - CampusEingang</h1>
-                    <p style="margin:5px 0 0; opacity:0.9;">Eingegangen am {datetime.now().strftime('%d.%m.%Y um %H:%M')}</p>
-                </div>
-                <div class="content">
-                    <div style="text-align: right; margin-bottom: 15px;">
-                        <span class="badge">Sprache: {LANGUAGES[lang]}</span>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">👤 Von:</div>
-                        <div class="value"><strong>{name}</strong></div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">📧 Kontakt:</div>
-                        <div class="value">{email if email else 'Nicht angegeben'}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">📝 Art des Feedbacks:</div>
-                        <div class="value">{feedback_type}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">⚠️ Dringlichkeit:</div>
-                        <div class="value">
-                            <span class="urgency urgency-{urgency}">{urgency}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">💬 Feedback:</div>
-                        <div class="value" style="white-space: pre-line;">{feedback}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">🌐 Sprache:</div>
-                        <div class="value">{LANGUAGES[lang]}</div>
-                    </div>
-                </div>
-                <div class="footer">
-                    <p>Dieses Feedback wurde über die CampusEingang-App gesendet.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Créer le message pour toi
-        message = Mail(
-            from_email=FROM_EMAIL,
-            to_emails=TO_EMAIL,  # Ton email : naguepascal5@gmail.com
-            subject=f'📬 CampusEingang - Neues Feedback von {name}',
-            html_content=html_content
-        )
-        
-        # Envoyer
-        response = sg.send(message)
-        
-        # Optionnel: Envoyer une confirmation à l'utilisateur si email fourni
-        if email:
-            user_lang = lang
-            confirm_subject = {
-                'DE': '✅ Dein Feedback wurde empfangen',
-                'FR': '✅ Votre feedback a été reçu',
-                'EN': '✅ Your feedback has been received',
-                'ES': '✅ Tu feedback ha sido recibido',
-                'IT': '✅ Il tuo feedback è stato ricevuto'
-            }.get(user_lang, '✅ Feedback received')
-            
-            confirm_message = {
-                'DE': f'Hallo {name},\n\ndanke für dein Feedback! Wir werden es schnellstmöglich bearbeiten.\n\nDein Feedback: {feedback}\n\nVielen Dank!\nDein CampusEingang-Team',
-                'FR': f'Bonjour {name},\n\nmerci pour votre feedback ! Nous allons le traiter rapidement.\n\nVotre feedback : {feedback}\n\nMerci beaucoup !\nL\'équipe CampusEingang',
-                'EN': f'Hello {name},\n\nthank you for your feedback! We will process it as soon as possible.\n\nYour feedback: {feedback}\n\nThank you very much!\nYour CampusEingang Team',
-                'ES': f'Hola {name},\n\n¡gracias por tu feedback! Lo procesaremos lo antes posible.\n\nTu feedback: {feedback}\n\n¡Muchas gracias!\nEl equipo de CampusEingang',
-                'IT': f'Ciao {name},\n\ngrazie per il tuo feedback! Lo elaboreremo il prima possibile.\n\nIl tuo feedback: {feedback}\n\nGrazie mille!\nIl team di CampusEingang'
-            }.get(user_lang, f'Thank you for your feedback, {name}!')
-            
-            confirmation = Mail(
-                from_email=FROM_EMAIL,
-                to_emails=email,
-                subject=confirm_subject,
-                plain_text_content=confirm_message
-            )
-            sg.send(confirmation)
-        
-        return True, "Email envoyé avec succès"
-    
-    except Exception as e:
-        return False, str(e)
-
 # ==================== CONFIGURATION DES FICHIERS ====================
 DATA_DIR = "campus_data"
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -588,49 +424,95 @@ default_data = {
     "next_id": 3
 }
 
-# ==================== FONCTIONS DE GESTION DES DONNÉES ====================
+# ==================== FONCTIONS DE GESTION DES DONNÉES (CORRIGÉES) ====================
 def ensure_files():
-    if not os.path.exists(DATA_FILE):
+    """Crée les fichiers de données s'ils n'existent pas avec un contenu valide"""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    
+    # DATA_FILE
+    if not os.path.exists(DATA_FILE) or os.path.getsize(DATA_FILE) == 0:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(default_data, f, ensure_ascii=False, indent=2)
     
-    if not os.path.exists(TIME_TRACKING_FILE):
+    # TIME_TRACKING_FILE
+    if not os.path.exists(TIME_TRACKING_FILE) or os.path.getsize(TIME_TRACKING_FILE) == 0:
         with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
     
-    if not os.path.exists(SURVEY_FILE):
+    # SURVEY_FILE
+    if not os.path.exists(SURVEY_FILE) or os.path.getsize(SURVEY_FILE) == 0:
         with open(SURVEY_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
     
-    if not os.path.exists(RECYCLE_BIN_FILE):
+    # RECYCLE_BIN_FILE
+    if not os.path.exists(RECYCLE_BIN_FILE) or os.path.getsize(RECYCLE_BIN_FILE) == 0:
         with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
 
 def load_data():
+    """Charge les données avec gestion d'erreur JSON"""
     ensure_files()
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    print("Fichier data.json corrompu, réinitialisation...")
+                    save_data(default_data)
+                    return default_data
+        else:
+            save_data(default_data)
+            return default_data
+    except Exception as e:
+        print(f"Erreur lors du chargement des données: {e}")
+        return default_data
 
 def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_time_entries():
+    """Charge les entrées de temps avec gestion d'erreur JSON"""
     ensure_files()
-    with open(TIME_TRACKING_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        if os.path.exists(TIME_TRACKING_FILE) and os.path.getsize(TIME_TRACKING_FILE) > 0:
+            with open(TIME_TRACKING_FILE, "r", encoding="utf-8") as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    print("Fichier time_tracking.json corrompu, réinitialisation...")
+                    save_time_entries([])
+                    return []
+        else:
+            save_time_entries([])
+            return []
+    except Exception as e:
+        print(f"Erreur lors du chargement des temps: {e}")
+        return []
 
 def save_time_entries(entries):
     with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
         json.dump(entries, f, ensure_ascii=False, indent=2)
 
-# ==================== FONCTIONS POUR LA CORBEILLE ====================
 def load_recycle_bin():
+    """Charge les tâches supprimées avec gestion d'erreur JSON"""
     ensure_files()
-    if os.path.exists(RECYCLE_BIN_FILE):
-        with open(RECYCLE_BIN_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
+    try:
+        if os.path.exists(RECYCLE_BIN_FILE) and os.path.getsize(RECYCLE_BIN_FILE) > 0:
+            with open(RECYCLE_BIN_FILE, "r", encoding="utf-8") as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    print("Fichier recycle_bin.json corrompu, réinitialisation...")
+                    save_recycle_bin([])
+                    return []
+        else:
+            save_recycle_bin([])
+            return []
+    except Exception as e:
+        print(f"Erreur lors du chargement de la corbeille: {e}")
+        return []
 
 def save_recycle_bin(items):
     with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
@@ -667,7 +549,123 @@ def permanently_delete(task_id):
     recycle_bin = [t for t in recycle_bin if t['id'] != task_id]
     save_recycle_bin(recycle_bin)
 
-# ==================== SESSION STATE POUR LE TIMER ====================
+# ==================== CONFIGURATION EMAIL ====================
+SENDGRID_API_KEY = st.secrets.get("SENDGRID_API_KEY", "")
+FROM_EMAIL = "campus@eingang.de"
+TO_EMAIL = "naguepascal5@gmail.com"
+
+def send_feedback_email(name, email, feedback_type, feedback, urgency, lang='DE'):
+    """Envoie un email avec les détails du feedback"""
+    try:
+        if not SENDGRID_API_KEY:
+            return False, "SendGrid API Key nicht konfiguriert"
+            
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        urgency_labels = {
+            'DE': ['Niedrig', 'Mittel', 'Hoch', 'Kritisch'],
+            'FR': ['Basse', 'Moyenne', 'Haute', 'Critique'],
+            'EN': ['Low', 'Medium', 'High', 'Critical'],
+            'ES': ['Baja', 'Media', 'Alta', 'Crítica'],
+            'IT': ['Bassa', 'Media', 'Alta', 'Critica']
+        }
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+                          color: white; padding: 25px; border-radius: 15px 15px 0 0; }}
+                .content {{ background: #f8f9fa; padding: 25px; border-radius: 0 0 15px 15px; }}
+                .field {{ margin: 20px 0; }}
+                .label {{ font-weight: bold; color: #8e44ad; font-size: 1.1em; }}
+                .value {{ background: white; padding: 12px; border-radius: 8px; margin-top: 5px;
+                         border-left: 4px solid #9b59b6; }}
+                .urgency {{ display: inline-block; padding: 5px 15px; border-radius: 20px; 
+                          font-weight: bold; }}
+                .urgency-Hoch, .urgency-Haute, .urgency-High, .urgency-Alta, .urgency-Critical {{ 
+                    background: #ff6b6b; color: white; }}
+                .urgency-Mittel, .urgency-Moyenne, .urgency-Medium, .urgency-Media {{ 
+                    background: #feca57; color: black; }}
+                .urgency-Niedrig, .urgency-Basse, .urgency-Low, .urgency-Baja, .urgency-Bassa {{ 
+                    background: #48dbfb; color: black; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #999; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1 style="margin:0;">📬 Neues Feedback - CampusEingang</h1>
+                    <p style="margin:5px 0 0;">{datetime.now().strftime('%d.%m.%Y um %H:%M')}</p>
+                </div>
+                <div class="content">
+                    <div class="field">
+                        <div class="label">👤 Von:</div>
+                        <div class="value"><strong>{name}</strong></div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">📧 Kontakt:</div>
+                        <div class="value">{email if email else 'Nicht angegeben'}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">📝 Art:</div>
+                        <div class="value">{feedback_type}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">⚠️ Dringlichkeit:</div>
+                        <div class="value">
+                            <span class="urgency urgency-{urgency}">{urgency}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">💬 Feedback:</div>
+                        <div class="value" style="white-space: pre-line;">{feedback}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">🌐 Sprache:</div>
+                        <div class="value">{LANGUAGES.get(lang, 'DE')}</div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>© CampusEingang - Alle Rechte vorbehalten</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=TO_EMAIL,
+            subject=f'📬 CampusEingang - Neues Feedback von {name}',
+            html_content=html_content
+        )
+        
+        response = sg.send(message)
+        
+        if email:
+            confirm_message = Mail(
+                from_email=FROM_EMAIL,
+                to_emails=email,
+                subject='✅ Dein Feedback wurde empfangen',
+                plain_text_content=f'Hallo {name},\n\ndanke für dein Feedback! Wir werden es schnellstmöglich bearbeiten.\n\nDein Feedback: {feedback}\n\nVielen Dank!\nDein CampusEingang-Team'
+            )
+            sg.send(confirm_message)
+        
+        return True, "Email envoyé avec succès"
+    
+    except Exception as e:
+        return False, str(e)
+
+# ==================== SESSION STATE ====================
 if 'active_timer' not in st.session_state:
     st.session_state.active_timer = False
 if 'timer_start' not in st.session_state:
@@ -678,32 +676,35 @@ if 'timer_running' not in st.session_state:
     st.session_state.timer_running = False
 if 'current_time' not in st.session_state:
     st.session_state.current_time = 0
+if 'language' not in st.session_state:
+    st.session_state.language = 'DE'
 
-# ==================== CSS PERSONNALISÉ ====================
+# ==================== CSS PERSONNALISÉ (VIOLET CLAIR) ====================
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.5rem;
         font-weight: 700;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(90deg, #9b59b6 0%, #8e44ad 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0;
     }
     .task-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
         border-radius: 15px;
         padding: 20px;
         margin: 10px 0;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transition: transform 0.3s ease;
+        border-left: 5px solid #9b59b6;
     }
     .task-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 15px rgba(155, 89, 182, 0.3);
     }
     .badge-overdue {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);
         color: white;
         padding: 5px 10px;
         border-radius: 20px;
@@ -711,7 +712,7 @@ st.markdown("""
         font-weight: 600;
     }
     .badge-today {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
         color: white;
         padding: 5px 10px;
         border-radius: 20px;
@@ -719,7 +720,7 @@ st.markdown("""
         font-weight: 600;
     }
     .badge-upcoming {
-        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%);
         color: white;
         padding: 5px 10px;
         border-radius: 20px;
@@ -727,24 +728,25 @@ st.markdown("""
         font-weight: 600;
     }
     .active-timer {
-        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
         border-radius: 15px;
         padding: 20px;
         margin: 20px 0;
-        border: 2px solid #667eea;
+        border: 2px solid #9b59b6;
         animation: pulse 2s infinite;
         text-align: center;
     }
     @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+        0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(155, 89, 182, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0); }
     }
     .timer-display {
         font-size: 3rem;
         font-weight: bold;
-        color: #667eea;
+        color: #8e44ad;
         margin: 10px 0;
+        font-family: monospace;
     }
     .stButton > button {
         border-radius: 25px;
@@ -753,52 +755,68 @@ st.markdown("""
     }
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        box-shadow: 0 5px 15px rgba(155, 89, 182, 0.3);
     }
     div[data-testid="stMetricValue"] {
         font-size: 1.8rem;
         font-weight: 700;
-        color: #667eea;
+        color: #8e44ad;
+    }
+    .stProgress > div > div > div > div {
+        background-color: #9b59b6;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 25px;
+        padding: 8px 16px;
+        background-color: #f3e5f5;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #9b59b6 !important;
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== HEADER PRINCIPAL ====================
-st.markdown(f'<h1 class="main-header">{t("app_title")}</h1>', unsafe_allow_html=True)
-
-# ==================== SIDEBAR AVEC TIMER AMÉLIORÉ ====================
+# ==================== SIDEBAR ====================
 with st.sidebar:
+    st.markdown("### 🌐 Sprache / Langue / Language")
+    selected_lang = st.selectbox(
+        "",
+        options=list(LANGUAGES.keys()),
+        format_func=lambda x: LANGUAGES[x],
+        key='language',
+        index=list(LANGUAGES.keys()).index(st.session_state.language)
+    )
+    
+    st.markdown("---")
     st.markdown(f"### {t('active_timer')}")
     
-    # Timer amélioré avec mise à jour automatique
     if st.session_state.active_timer and st.session_state.timer_running:
         data = load_data()
         task = next((t for t in data["tasks"] if t["id"] == st.session_state.timer_task_id), None)
         
         if task:
-            # Calculer le temps écoulé
             elapsed = datetime.now() - st.session_state.timer_start
             hours = int(elapsed.total_seconds() // 3600)
             minutes = int((elapsed.total_seconds() % 3600) // 60)
             seconds = int(elapsed.total_seconds() % 60)
             
-            # Mettre à jour le temps actuel
             st.session_state.current_time = elapsed.total_seconds()
             
-            # Afficher le timer
             st.markdown(f"""
             <div class="active-timer">
-                <h4 style="margin:0;">▶️ {task['title'][:30]}{'...' if len(task['title']) > 30 else ''}</h4>
+                <h4 style="margin:0; color: #8e44ad;">▶️ {task['title'][:30]}{'...' if len(task['title']) > 30 else ''}</h4>
                 <div class="timer-display">{hours:02d}:{minutes:02d}:{seconds:02d}</div>
-                <p style="margin:0;">Start: {st.session_state.timer_start.strftime('%H:%M:%S')}</p>
+                <p style="margin:0; color: #666;">Start: {st.session_state.timer_start.strftime('%H:%M:%S')}</p>
             </div>
             """, unsafe_allow_html=True)
             
-            # Boutons de contrôle
             col1, col2 = st.columns(2)
             with col1:
                 if st.button(t('stop'), use_container_width=True, type="primary"):
-                    # Arrêter le timer et sauvegarder
                     elapsed = datetime.now() - st.session_state.timer_start
                     minutes = elapsed.total_seconds() / 60
                     
@@ -831,36 +849,34 @@ with st.sidebar:
                     st.session_state.timer_running = False
                     st.rerun()
             
-            # Auto-refresh toutes les secondes
             time.sleep(0.1)
             st.rerun()
     
     elif st.session_state.active_timer and not st.session_state.timer_running:
-        # Timer en pause
         st.markdown("""
-        <div style="background: #f0f0f0; border-radius: 15px; padding: 20px; text-align: center;">
-            <h4>⏸️ Timer pausiert</h4>
+        <div style="background: #f3e5f5; border-radius: 15px; padding: 20px; text-align: center; border: 2px solid #9b59b6;">
+            <h4 style="color: #8e44ad;">⏸️ Timer pausiert</h4>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("▶️ Fortsetzen", use_container_width=True):
-            st.session_state.timer_running = True
-            st.rerun()
-        
-        if st.button("⏹️ Beenden", use_container_width=True):
-            st.session_state.active_timer = False
-            st.session_state.timer_running = False
-            st.session_state.current_time = 0
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("▶️ " + t('start'), use_container_width=True):
+                st.session_state.timer_running = True
+                st.rerun()
+        with col2:
+            if st.button("⏹️ " + t('stop'), use_container_width=True):
+                st.session_state.active_timer = False
+                st.session_state.timer_running = False
+                st.session_state.current_time = 0
+                st.rerun()
     
     else:
         st.info(t('no_active_timer'))
-        st.markdown("*" + t('start') + " " + t('tasks') + "*")
     
     st.markdown("---")
-    
-    # Statistiques rapides
     st.markdown(f"### {t('quick_stats')}")
+    
     data = load_data()
     time_entries = load_time_entries()
     
@@ -873,6 +889,9 @@ with st.sidebar:
         st.metric(t('total_time'), f"{int(total_time)} {t('min')}", f"{int(total_time/60)}{t('h')}")
     with col2:
         st.metric(t('tasks'), f"{tasks_done}/{tasks_total}")
+
+# ==================== HEADER ====================
+st.markdown(f'<h1 class="main-header">{t("app_title")}</h1>', unsafe_allow_html=True)
 
 # ==================== ONGLETS ====================
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -892,10 +911,8 @@ with tab1:
     today = date.today()
     
     if data["tasks"]:
-        # Créer DataFrame
         df = pd.DataFrame(data["tasks"])
         
-        # Calculer overdue
         def parse_deadline(s):
             try:
                 return datetime.strptime(s, "%Y-%m-%d").date() if s else None
@@ -907,7 +924,6 @@ with tab1:
                                  (r["deadline_date"] is not None) and 
                                  (r["deadline_date"] < today), axis=1)
         
-        # Filtre
         filter_options = [t('all'), t('active'), t('completed'), t('overdue')]
         filter_option = st.radio(t('filter'), filter_options, horizontal=True)
         
@@ -918,9 +934,7 @@ with tab1:
         elif filter_option == t('overdue'):
             df = df[df["overdue"]]
         
-        # Afficher les tâches
         for idx, task in df.iterrows():
-            # Badge
             if task.get("overdue"):
                 badge = f'<span class="badge-overdue">⚠️ {t("overdue")}</span>'
             elif task["deadline_date"] and task["deadline_date"] <= today:
@@ -931,22 +945,21 @@ with tab1:
             else:
                 badge = f'<span class="badge-upcoming">📅 {task["deadline"]}</span>'
             
-            # Couleur priorité
-            priority = task.get('priority', 'Mittel')
+            priority = task.get('priority', t('priority_options')[1])
             priority_color = {
-                t('priority_options')[2]: "#ff6b6b",  # Hoch/Haute/High
-                t('priority_options')[1]: "#feca57",  # Mittel/Moyenne/Medium
-                t('priority_options')[0]: "#48dbfb"   # Niedrig/Basse/Low
+                t('priority_options')[2]: "#ff6b6b",
+                t('priority_options')[1]: "#feca57",
+                t('priority_options')[0]: "#48dbfb"
             }.get(priority, "#feca57")
             
             st.markdown(f"""
             <div class="task-card" style="border-left: 5px solid {priority_color};">
                 <div style="display: flex; justify-content: space-between;">
-                    <h3 style="margin:0;">{task['title']}</h3>
+                    <h3 style="margin:0; color: #8e44ad;">{task['title']}</h3>
                     {badge}
                 </div>
-                <p>📂 {task['category']} | 🎯 {priority}</p>
-                <p>⏱️ {task.get('total_time_spent', 0):.0f} {t('min')} / {task.get('estimated_time', 60)} {t('min')}</p>
+                <p style="color: #666;">📂 {task['category']} | 🎯 {priority}</p>
+                <p style="color: #666;">⏱️ {task.get('total_time_spent', 0):.0f} {t('min')} / {task.get('estimated_time', 60)} {t('min')}</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -966,7 +979,6 @@ with tab1:
                         st.rerun()
                 elif st.session_state.active_timer and st.session_state.timer_task_id == task["id"]:
                     if st.button(t('stop'), key=f"stop_{task['id']}", use_container_width=True):
-                        # Arrêter le timer
                         elapsed = datetime.now() - st.session_state.timer_start
                         minutes = elapsed.total_seconds() / 60
                         
@@ -1009,7 +1021,6 @@ with tab1:
             
             with col5:
                 if st.button("🗑️", key=f"del_{task['id']}", use_container_width=True):
-                    # Déplacer vers la corbeille
                     task_dict = dict(task)
                     move_to_recycle_bin(task_dict)
                     
@@ -1020,7 +1031,6 @@ with tab1:
                     st.success(f"✅ Aufgabe in den Papierkorb verschoben!")
                     st.rerun()
             
-            # Formulaire d'édition
             if st.session_state.get(f"edit_{task['id']}", False):
                 with st.form(key=f"edit_form_{task['id']}"):
                     new_title = st.text_input(t('title'), value=task["title"])
@@ -1111,14 +1121,13 @@ with tab3:
         entries_df = pd.DataFrame(time_entries)
         entries_df['date'] = pd.to_datetime(entries_df['date'])
         
-        # Graphique
         daily_time = entries_df.groupby('date')['duration_minutes'].sum().reset_index()
         fig = px.bar(daily_time, x='date', y='duration_minutes', 
                      title=t('time_recorded').replace('⏱️ ', ''),
-                     labels={'duration_minutes': t('minutes'), 'date': t('deadline')})
+                     labels={'duration_minutes': t('minutes'), 'date': t('deadline')},
+                     color_discrete_sequence=['#9b59b6'])
         st.plotly_chart(fig, use_container_width=True)
         
-        # Tableau
         st.subheader("📋 " + t('time_recorded'))
         display_df = entries_df.copy()
         display_df['Datum'] = display_df['date'].dt.strftime('%d.%m.%Y')
@@ -1127,7 +1136,6 @@ with tab3:
         
         st.dataframe(display_df[['Datum', t('tasks'), t('minutes')]], use_container_width=True, hide_index=True)
         
-        # Stats
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric(t('total_time'), f"{int(entries_df['duration_minutes'].sum())} {t('min')}")
@@ -1138,7 +1146,7 @@ with tab3:
     else:
         st.info("⏳ " + t('time_recorded'))
 
-# ==================== TAB 4: ANALYSEN ====================
+# ==================== TAB 4: ANALYSEN (CORRIGÉE) ====================
 with tab4:
     st.header(t('analysis'))
     
@@ -1146,13 +1154,12 @@ with tab4:
     today = date.today()
     
     if data["tasks"]:
-        # Créer DataFrame sécurisé
         tasks_list = []
         for task in data["tasks"]:
             safe_task = {
                 "title": task.get("title", "Sans titre"),
                 "category": task.get("category", "Sonstiges"),
-                "priority": task.get("priority", t('priority_options')[1]),
+                "priority": task.get("priority", t('priority_options')[1] if len(t('priority_options')) > 1 else "Mittel"),
                 "estimated_time": task.get("estimated_time", 60),
                 "total_time_spent": task.get("total_time_spent", 0),
                 "done": task.get("done", False),
@@ -1167,7 +1174,6 @@ with tab4:
         )
         tasks_df['Status'] = tasks_df['done'].apply(lambda x: "✅ " + t('completed') if x else "🔄 " + t('active'))
         
-        # Graphiques
         col1, col2 = st.columns(2)
         
         with col1:
@@ -1175,7 +1181,7 @@ with tab4:
             if not tasks_df.empty:
                 category_counts = tasks_df['category'].value_counts()
                 fig = px.pie(values=category_counts.values, names=category_counts.index,
-                           title=t('by_category'))
+                           title=t('by_category'), color_discrete_sequence=px.colors.sequential.Purples_r)
                 st.plotly_chart(fig, use_container_width=True)
         
         with col2:
@@ -1188,11 +1194,11 @@ with tab4:
                     mode="gauge+number",
                     value=done_count/total_count*100,
                     title={'text': f"{done_count}/{total_count} {t('completed')}"},
-                    gauge={'axis': {'range': [None, 100]}}
+                    gauge={'axis': {'range': [None, 100]},
+                           'bar': {'color': "#9b59b6"}}
                 ))
                 st.plotly_chart(fig, use_container_width=True)
         
-        # Statistiques
         st.subheader(t('stats'))
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         
@@ -1212,18 +1218,17 @@ with tab4:
             ])
             st.metric(t('overdue'), overdue_count)
         
-        # Récupérer la valeur de priorité "Hoch" dans la langue actuelle
         with col_m4:
-            priority_high = t('priority_options')[2] if len(t('priority_options')) > 2 else "Hoch"
+            priority_options = t('priority_options')
+            priority_high = priority_options[2] if len(priority_options) > 2 else "Hoch"
             high_priority = len([t for t in data["tasks"] if t.get("priority") == priority_high])
             st.metric(t('priority'), high_priority)
-                
-        # Tableau
+        
         st.subheader("📋 " + t('tasks'))
         display_cols = ['title', 'category', 'priority', 'estimated_time', 'total_time_spent', 'Effizienz', 'Status']
-        st.dataframe(tasks_df[display_cols], use_container_width=True, hide_index=True)
+        available_cols = [col for col in display_cols if col in tasks_df.columns]
+        st.dataframe(tasks_df[available_cols], use_container_width=True, hide_index=True)
         
-        # Export
         if st.button(t('export')):
             csv = tasks_df.to_csv(index=False)
             st.download_button(
@@ -1235,7 +1240,7 @@ with tab4:
     else:
         st.info(f"📊 {t('analysis')}")
 
-# ==================== TAB 5: FEEDBACK AVEC EMAIL ====================
+# ==================== TAB 5: FEEDBACK ====================
 with tab5:
     st.header(t('feedback_header'))
     
@@ -1244,8 +1249,7 @@ with tab5:
     with col1:
         with st.form("feedback_form"):
             name = st.text_input(f"👤 {t('name')}", placeholder="Max Mustermann")
-            email = st.text_input(f"📧 {t('email')}", placeholder="max@example.com", 
-                                 help="Für Rückmeldung zu deinem Feedback")
+            email = st.text_input(f"📧 {t('email')}", placeholder="max@example.com")
             feedback_type = st.selectbox(f"📝 {t('feedback_type')}", t('feedback_types'))
             urgency = st.select_slider(f"⚠️ {t('urgency')}", options=t('urgency_options'), value=t('urgency_options')[1])
             feedback = st.text_area(f"💬 {t('feedback_text')} *", height=150)
@@ -1254,7 +1258,6 @@ with tab5:
             
             if submitted and feedback:
                 with st.spinner("📤 Senden..."):
-                    # Sauvegarde locale
                     ensure_files()
                     with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                         entries = json.load(f)
@@ -1274,22 +1277,23 @@ with tab5:
                     with open(SURVEY_FILE, "w", encoding="utf-8") as f:
                         json.dump(entries, f, ensure_ascii=False, indent=2)
                     
-                    # Envoi email
-                    success, message = send_feedback_email(
-                        name or "Anonym",
-                        email,
-                        feedback_type,
-                        feedback,
-                        urgency,
-                        st.session_state.get('language', 'DE')
-                    )
-                    
-                    if success:
-                        st.success(t('feedback_sent'))
-                        st.balloons()
+                    if SENDGRID_API_KEY:
+                        success, message = send_feedback_email(
+                            name or "Anonym",
+                            email,
+                            feedback_type,
+                            feedback,
+                            urgency,
+                            st.session_state.get('language', 'DE')
+                        )
+                        
+                        if success:
+                            st.success(t('feedback_sent'))
+                            st.balloons()
+                        else:
+                            st.warning("📝 Feedback wurde lokal gespeichert.")
                     else:
-                        st.error(f"❌ Fehler: {message}")
-                        st.info("📝 Feedback wurde lokal gespeichert.")
+                        st.info("📝 Feedback wurde lokal gespeichert (Email nicht konfiguriert).")
     
     with col2:
         st.subheader("📊 " + t('stats'))
@@ -1299,8 +1303,6 @@ with tab5:
             
             if entries:
                 st.metric(t('feedback_header'), len(entries))
-                
-                # Dernier feedback
                 last = entries[-1]
                 st.markdown(f"""
                 **{t('name')}:** {last.get('name', 'Anonym')}  
@@ -1329,7 +1331,6 @@ with tab6:
         st.markdown("---")
         
         for idx, task in enumerate(recycle_bin):
-            # Info de suppression
             deleted_info = ""
             if 'deleted_at' in task:
                 try:
@@ -1345,12 +1346,12 @@ with tab6:
                     deleted_info = f"🔸 {task['deleted_at']}"
             
             st.markdown(f"""
-            <div style="background: #2b2b2b10; border-radius: 10px; padding: 15px; margin: 10px 0;">
+            <div style="background: #f3e5f5; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 5px solid #9b59b6;">
                 <div style="display: flex; justify-content: space-between;">
-                    <h4>{task.get('title', '')}</h4>
+                    <h4 style="color: #8e44ad;">{task.get('title', '')}</h4>
                     <span style="color: #666;">{deleted_info}</span>
                 </div>
-                <p>📂 {task.get('category', '')} | 🎯 {task.get('priority', '')}</p>
+                <p style="color: #666;">📂 {task.get('category', '')} | 🎯 {task.get('priority', '')}</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1376,8 +1377,8 @@ with tab6:
     
     else:
         st.markdown(f"""
-        <div style="text-align: center; padding: 50px;">
+        <div style="text-align: center; padding: 50px; background: #f3e5f5; border-radius: 20px;">
             <h1 style="font-size: 4rem;">🗑️</h1>
-            <h3>{t('empty_bin')}</h3>
+            <h3 style="color: #8e44ad;">{t('empty_bin')}</h3>
         </div>
         """, unsafe_allow_html=True)
