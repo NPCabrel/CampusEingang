@@ -990,113 +990,146 @@ with tab1:
             
             col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
             
-            with col1:
-                # Calcul sécurisé de la progression
-                total_spent = float(task.get('total_time_spent', 0))
-                estimated = float(max(task.get('estimated_time', 60), 1))
-                progress = max(0.0, min(total_spent / estimated, 1.0))  # Entre 0 et 1
-                st.progress(progress)
-            
-            with col2:
-                if not task.get("done", False) and not st.session_state.active_timer:
-                    if st.button(t('start'), key=f"start_{task['id']}", use_container_width=True):
-                        st.session_state.active_timer = True
-                        st.session_state.timer_running = True
-                        st.session_state.timer_start = datetime.now()
-                        st.session_state.timer_task_id = task["id"]
-                        st.rerun()
-                elif st.session_state.active_timer and st.session_state.timer_task_id == task["id"]:
-                    if st.button(t('stop'), key=f"stop_{task['id']}", use_container_width=True):
-                        elapsed = datetime.now() - st.session_state.timer_start
-                        minutes = elapsed.total_seconds() / 60
-                        
-                        entries = load_time_entries()
-                        entry = {
-                            "task_id": task["id"],
-                            "task_title": task["title"],
-                            "start_time": st.session_state.timer_start.isoformat(),
-                            "end_time": datetime.now().isoformat(),
-                            "duration_minutes": round(minutes, 2),
-                            "date": date.today().isoformat()
-                        }
-                        entries.append(entry)
-                        save_time_entries(entries)
-                        
-                        data = load_data()
-                        for t in data["tasks"]:
-                            if t["id"] == task["id"]:
-                                t["total_time_spent"] = t.get("total_time_spent", 0) + round(minutes, 2)
-                                break
-                        save_data(data)
-                        
-                        st.session_state.active_timer = False
-                        st.session_state.timer_running = False
-                        st.rerun()
-            
-            with col3:
-                if st.button(t('done'), key=f"done_{task['id']}", use_container_width=True):
-                    data = load_data()
-                    for t in data["tasks"]:
-                        if t["id"] == task["id"]:
-                            t["done"] = not t.get("done", False)
-                            break
-                    save_data(data)
+            # Dans TAB 1, après l'affichage de la carte de tâche, remplace toute la partie des boutons par :
+
+col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
+
+with col1:
+    # Progression
+    try:
+        total_spent = float(task.get('total_time_spent', 0))
+        estimated = float(max(task.get('estimated_time', 60), 1))
+        progress = max(0.0, min(total_spent / estimated, 1.0))
+        st.progress(progress)
+    except:
+        st.progress(0.0)
+
+with col2:
+    # Timer
+    if not task.get("done", False):
+        if not st.session_state.active_timer:
+            if st.button(t('start'), key=f"start_{task['id']}_{idx}", use_container_width=True):
+                st.session_state.active_timer = True
+                st.session_state.timer_running = True
+                st.session_state.timer_start = datetime.now()
+                st.session_state.timer_task_id = task["id"]
+                st.rerun()
+        elif st.session_state.timer_task_id == task["id"]:
+            if st.session_state.timer_running:
+                if st.button(t('pause'), key=f"pause_{task['id']}_{idx}", use_container_width=True):
+                    st.session_state.timer_running = False
                     st.rerun()
-            
-            with col4:
-                # Utiliser un ID simple et unique
-                if st.button(t('edit'), key=f"edit_btn_{task['id']}_{idx}", use_container_width=True):
-                    edit_key = f"edit_mode_{task['id']}"
-                    st.session_state[edit_key] = True
+            else:
+                if st.button(t('start'), key=f"resume_{task['id']}_{idx}", use_container_width=True):
+                    st.session_state.timer_running = True
                     st.rerun()
-            
-            with col5:
-                if st.button("🗑️", key=f"del_{task['id']}", use_container_width=True):
-                    task_dict = dict(task)
-                    move_to_recycle_bin(task_dict)
-                    
-                    data = load_data()
-                    data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
-                    save_data(data)
-                    
-                    st.success(f"✅ Aufgabe in den Papierkorb verschoben!")
-                    st.rerun()
-            
-            if st.session_state.get(f"edit_{task['id']}", False):
-                with st.form(key=f"edit_form_{task['id']}"):
-                    new_title = st.text_input(t('title'), value=task["title"])
-                    new_category = st.selectbox(t('category'), t('category_options'), 
-                                              index=t('category_options').index(task.get('category', t('category_options')[0])) if task.get('category') in t('category_options') else 0)
-                    new_priority = st.selectbox(t('priority'), t('priority_options'),
-                                              index=t('priority_options').index(task.get('priority', t('priority_options')[1])))
-                    new_estimated = st.number_input(t('estimated_time'), value=task.get('estimated_time', 60), min_value=1)
-                    new_notes = st.text_area(t('notes'), value=task.get('notes', ''))
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.form_submit_button("💾 " + t('edit')):
-                            data = load_data()
-                            for t in data["tasks"]:
-                                if t["id"] == task["id"]:
-                                    t.update({
-                                        "title": new_title,
-                                        "category": new_category,
-                                        "priority": new_priority,
-                                        "estimated_time": new_estimated,
-                                        "notes": new_notes
-                                    })
-                                    break
-                            save_data(data)
-                            st.session_state[f"edit_{task['id']}"] = False
-                            st.rerun()
-                    with col2:
-                        if st.form_submit_button("❌ " + t('edit') + " " + t('delete')):
-                            st.session_state[f"edit_{task['id']}"] = False
-                            st.rerun()
+
+with col3:
+    # Bouton Done
+    if st.button(t('done'), key=f"done_{task['id']}_{idx}", use_container_width=True):
+        data = load_data()
+        for t in data["tasks"]:
+            if t["id"] == task["id"]:
+                t["done"] = not t.get("done", False)
+                break
+        save_data(data)
+        st.rerun()
+
+with col4:
+    # Bouton Edit - CORRIGÉ
+    edit_key = f"edit_mode_{task['id']}"
+    if st.button(t('edit'), key=f"edit_btn_{task['id']}_{idx}", use_container_width=True):
+        st.session_state[edit_key] = True
+        st.rerun()
+
+with col5:
+    # Bouton Delete
+    if st.button("🗑️", key=f"del_{task['id']}_{idx}", use_container_width=True):
+        # Convertir en dictionnaire simple
+        task_dict = {
+            'id': int(task['id']),
+            'title': str(task['title']),
+            'category': str(task.get('category', '')),
+            'priority': str(task.get('priority', 'Mittel')),
+            'deadline': str(task.get('deadline', '')),
+            'estimated_time': float(task.get('estimated_time', 60)),
+            'total_time_spent': float(task.get('total_time_spent', 0)),
+            'done': bool(task.get('done', False)),
+            'notes': str(task.get('notes', '')),
+            'link': str(task.get('link', ''))
+        }
+        
+        move_to_recycle_bin(task_dict)
+        
+        data = load_data()
+        data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
+        save_data(data)
+        
+        st.success("✅ Aufgabe in den Papierkorb verschoben!")
+        st.rerun()
+
+# Formulaire d'édition - CORRIGÉ
+if st.session_state.get(edit_key, False):
+    with st.form(key=f"edit_form_{task['id']}_{idx}"):
+        st.markdown(f"**{t('edit')}: {task['title']}**")
+        
+        new_title = st.text_input(t('title'), value=task['title'])
+        
+        # Catégorie
+        current_category = task.get('category', t('category_options')[0])
+        cat_index = 0
+        if current_category in t('category_options'):
+            cat_index = t('category_options').index(current_category)
+        new_category = st.selectbox(t('category'), t('category_options'), index=cat_index)
+        
+        # Priorité
+        current_priority = task.get('priority', t('priority_options')[1])
+        prio_index = 1
+        if current_priority in t('priority_options'):
+            prio_index = t('priority_options').index(current_priority)
+        new_priority = st.selectbox(t('priority'), t('priority_options'), index=prio_index)
+        
+        # Temps estimé
+        try:
+            current_estimated = float(task.get('estimated_time', 60))
+        except:
+            current_estimated = 60
+        new_estimated = st.number_input(t('estimated_time'), 
+                                       value=current_estimated, 
+                                       min_value=1.0, 
+                                       step=5.0)
+        
+        new_notes = st.text_area(t('notes'), value=task.get('notes', ''))
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.form_submit_button("💾 " + t('edit')):
+                data = load_data()
+                for t in data["tasks"]:
+                    if t["id"] == task["id"]:
+                        t.update({
+                            "title": new_title,
+                            "category": new_category,
+                            "priority": new_priority,
+                            "estimated_time": float(new_estimated),
+                            "notes": new_notes
+                        })
+                        break
+                save_data(data)
+                if edit_key in st.session_state:
+                    del st.session_state[edit_key]
+                st.success("✅ Aufgabe aktualisiert!")
+                st.rerun()
+        
+        with col2:
+            if st.form_submit_button("❌ Abbrechen"):
+                if edit_key in st.session_state:
+                    del st.session_state[edit_key]
+                st.rerun()
             
             st.divider()
-    else:
-        st.info(f"✨ {t('tasks_header')}")
+    # else:
+    #     st.info(f"✨ {t('tasks_header')}")
 
 # ==================== TAB 2: NEUE AUFGABE ====================
 with tab2:
