@@ -414,11 +414,18 @@ with tab1:
                     if st.button("✏️ Edit", key=f"edit_{task['id']}", use_container_width=True):
                         st.session_state[f"editing_{task['id']}"] = True
                 
+                # Dans TAB 1, remplace le bouton de suppression existant par :
                 with col5:
                     if st.button("🗑️", key=f"del_{task['id']}"):
+                        # Déplacer vers la corbeille au lieu de supprimer définitivement
+                        move_to_recycle_bin(task.to_dict() if hasattr(task, 'to_dict') else dict(task))
+                        
+                        # Supprimer de la liste principale
                         data = load_data()
                         data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
                         save_data(data)
+                        
+                        st.success(f"✅ Aufgabe '{task['title']}' wurde in den Papierkorb verschoben!")
                         st.rerun()
                 
                 # Notes si présentes
@@ -804,7 +811,62 @@ import hashlib
 SENDGRID_API_KEY = st.secrets.get("SENDGRID_API_KEY", "TA_CLE_API_ICI")
 FROM_EMAIL = "campus@eingang.de"  # À vérifier dans SendGrid (sender verification)
 TO_EMAIL = "ton-email@example.com"  # Où tu veux recevoir les feedbacks
+# Ajoute cette ligne avec les autres fichiers de données
+RECYCLE_BIN_FILE = os.path.join(DATA_DIR, "recycle_bin.json")
+# Fonctions pour la corbeille
+def load_recycle_bin():
+    """Charge les tâches supprimées"""
+    ensure_files()
+    if os.path.exists(RECYCLE_BIN_FILE):
+        with open(RECYCLE_BIN_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
+def save_recycle_bin(items):
+    """Sauvegarde la corbeille"""
+    with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+def move_to_recycle_bin(task):
+    """Déplace une tâche vers la corbeille"""
+    recycle_bin = load_recycle_bin()
+    
+    # Ajouter la date de suppression
+    task_with_meta = task.copy()
+    task_with_meta['deleted_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    task_with_meta['can_be_restored'] = True
+    
+    recycle_bin.append(task_with_meta)
+    save_recycle_bin(recycle_bin)
+
+def restore_from_recycle_bin(task_id):
+    """Restaure une tâche depuis la corbeille"""
+    recycle_bin = load_recycle_bin()
+    task_to_restore = None
+    
+    for task in recycle_bin:
+        if task['id'] == task_id:
+            task_to_restore = task
+            recycle_bin.remove(task)
+            break
+    
+    if task_to_restore:
+        # Nettoyer les métadonnées de suppression
+        task_to_restore.pop('deleted_at', None)
+        task_to_restore.pop('can_be_restored', None)
+        
+        save_recycle_bin(recycle_bin)
+        return task_to_restore
+    
+    return None
+
+def permanently_delete(task_id):
+    """Supprime définitivement une tâche"""
+    recycle_bin = load_recycle_bin()
+    recycle_bin = [t for t in recycle_bin if t['id'] != task_id]
+    save_recycle_bin(recycle_bin)
+
+#Feedback
 def send_feedback_email(name, email, feedback_type, feedback, urgency):
     """
     Envoie un email avec les détails du feedback
@@ -1222,3 +1284,226 @@ with tab5:
                     st.info("Keine Feedbacks vorhanden")
         elif password:
             st.error("❌ Falsches Passwort")
+# Après TAB 5, ajoute ce nouvel onglet
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📋 Aufgaben", 
+    "➕ Neue Aufgabe", 
+    "⏱️ Zeiterfassung", 
+    "📊 Analysen",
+    "🗣️ Feedback",
+    "🗑️ Papierkorb"  # Nouvel onglet
+])
+
+# ... (garde tout le code existant des tabs 1-5)
+
+# TAB 6: Papierkorb (Corbeille)
+with tab6:
+    st.header("🗑️ Papierkorb - Gelöschte Aufgaben")
+    
+    recycle_bin = load_recycle_bin()
+    
+    if recycle_bin:
+        # Statistiques de la corbeille
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📦 Gelöschte Aufgaben", len(recycle_bin))
+        with col2:
+            # Taille estimée (en jours depuis suppression)
+            from datetime import datetime
+            ages = []
+            for task in recycle_bin:
+                if 'deleted_at' in task:
+                    deleted = datetime.strptime(task['deleted_at'], "%Y-%m-%d %H:%M:%S")
+                    days = (datetime.now() - deleted).days
+                    ages.append(days)
+            
+            if ages:
+                avg_age = sum(ages) // len(ages)
+                st.metric("⏳ Durchschnittsalter", f"{avg_age} Tage")
+            else:
+                st.metric("⏳ Durchschnittsalter", "0 Tage")
+        
+        with col3:
+            # Options de nettoyage
+            if st.button("🧹 Papierkorb leeren", use_container_width=True, type="secondary"):
+                if st.checkbox("⚠️ Wirklich alle Aufgaben endgültig löschen?"):
+                    save_recycle_bin([])
+                    st.success("🗑️ Papierkorb wurde geleert!")
+                    st.rerun()
+        
+        st.markdown("---")
+        
+        # Options de filtrage
+        filter_days = st.selectbox(
+            "🔍 Filtern nach Löschdatum",
+            ["Alle", "Letzte 7 Tage", "Letzte 30 Tage", "Älter als 30 Tage"]
+        )
+        
+        # Appliquer le filtre
+        filtered_bin = recycle_bin
+        if filter_days != "Alle":
+            today = datetime.now()
+            if filter_days == "Letzte 7 Tage":
+                filtered_bin = [
+                    t for t in recycle_bin 
+                    if 'deleted_at' in t and 
+                    (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days <= 7
+                ]
+            elif filter_days == "Letzte 30 Tage":
+                filtered_bin = [
+                    t for t in recycle_bin 
+                    if 'deleted_at' in t and 
+                    (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days <= 30
+                ]
+            elif filter_days == "Älter als 30 Tage":
+                filtered_bin = [
+                    t for t in recycle_bin 
+                    if 'deleted_at' in t and 
+                    (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days > 30
+                ]
+        
+        # Afficher les tâches dans la corbeille
+        for idx, task in enumerate(filtered_bin):
+            # Calculer l'âge de la suppression
+            deleted_info = ""
+            if 'deleted_at' in task:
+                deleted_date = datetime.strptime(task['deleted_at'], "%Y-%m-%d %H:%M:%S")
+                days_ago = (datetime.now() - deleted_date).days
+                if days_ago == 0:
+                    deleted_info = "🔸 Heute gelöscht"
+                elif days_ago == 1:
+                    deleted_info = "🔸 Gestern gelöscht"
+                else:
+                    deleted_info = f"🔸 Vor {days_ago} Tagen gelöscht"
+            
+            # Carte de tâche supprimée
+            with st.container():
+                st.markdown(f"""
+                <div style="background: #2b2b2b20; border-radius: 10px; padding: 15px; margin: 10px 0; 
+                            border-left: 5px solid #ff6b6b; opacity: 0.9;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin:0; color: #666;">{task['title']}</h4>
+                        <span style="background: #ff6b6b; color: white; padding: 3px 10px; 
+                                   border-radius: 15px; font-size: 0.8rem;">
+                            {deleted_info}
+                        </span>
+                    </div>
+                    <p style="color: #666; margin: 5px 0;">
+                        📂 {task.get('category', 'Sonstiges')} | 
+                        🎯 {task.get('priority', 'Mittel')}
+                    </p>
+                """, unsafe_allow_html=True)
+                
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                
+                with col1:
+                    # Afficher un aperçu
+                    if task.get('notes'):
+                        st.caption(f"📝 {task['notes'][:50]}...")
+                
+                with col2:
+                    # Bouton de restauration
+                    if st.button("♻️ Wiederherstellen", key=f"restore_{task['id']}_{idx}", use_container_width=True):
+                        restored_task = restore_from_recycle_bin(task['id'])
+                        if restored_task:
+                            # Ajouter à la liste principale
+                            data = load_data()
+                            
+                            # Trouver le prochain ID disponible
+                            new_id = max([t['id'] for t in data['tasks']] + [0]) + 1
+                            restored_task['id'] = new_id
+                            
+                            data['tasks'].append(restored_task)
+                            data['next_id'] = max(data['next_id'], new_id + 1)
+                            save_data(data)
+                            
+                            st.success(f"✅ Aufgabe '{restored_task['title']}' wurde wiederhergestellt!")
+                            st.rerun()
+                
+                with col3:
+                    # Bouton de suppression définitive
+                    if st.button("❌ Endgültig löschen", key=f"perm_del_{task['id']}_{idx}", use_container_width=True):
+                        permanently_delete(task['id'])
+                        st.warning(f"🗑️ Aufgabe '{task['title']}' wurde endgültig gelöscht!")
+                        st.rerun()
+                
+                with col4:
+                    # Détails supplémentaires
+                    with st.popover("ℹ️ Details"):
+                        st.markdown(f"""
+                        **ID:** {task['id']}  
+                        **Kategorie:** {task.get('category', 'N/A')}  
+                        **Priorität:** {task.get('priority', 'N/A')}  
+                        **Geschätzte Zeit:** {task.get('estimated_time', 0)} min  
+                        **Verbrauchte Zeit:** {task.get('total_time_spent', 0)} min  
+                        **Frist:** {task.get('deadline', 'Keine')}  
+                        **Gelöscht am:** {task.get('deleted_at', 'Unbekannt')}
+                        """)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Option de vidage sélectif
+        st.markdown("---")
+        with st.expander("⚙️ Erweiterte Optionen"):
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                if st.button("🗑️ Älter als 30 Tage löschen", use_container_width=True):
+                    today = datetime.now()
+                    recycle_bin = load_recycle_bin()
+                    new_bin = [
+                        t for t in recycle_bin 
+                        if 'deleted_at' not in t or 
+                        (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days <= 30
+                    ]
+                    save_recycle_bin(new_bin)
+                    st.success("✅ Alte Einträge wurden gelöscht!")
+                    st.rerun()
+            
+            with col_b:
+                if st.button("📦 Als JSON exportieren", use_container_width=True):
+                    export_data = json.dumps(recycle_bin, indent=2, ensure_ascii=False)
+                    st.download_button(
+                        "📥 Download JSON",
+                        export_data,
+                        f"papierkorb_{date.today().isoformat()}.json",
+                        "application/json"
+                    )
+            
+            with col_c:
+                if st.button("📊 Statistiken anzeigen", use_container_width=True):
+                    # Analyse de la corbeille
+                    df_bin = pd.DataFrame(recycle_bin)
+                    if not df_bin.empty and 'deleted_at' in df_bin.columns:
+                        df_bin['deleted_date'] = pd.to_datetime(df_bin['deleted_at']).dt.date
+                        deletion_by_day = df_bin.groupby('deleted_date').size()
+                        
+                        st.line_chart(deletion_by_day)
+    
+    else:
+        # Corbeille vide - affichage stylisé
+        st.markdown("""
+        <div style="text-align: center; padding: 50px; background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); 
+                    border-radius: 20px; margin: 20px 0;">
+            <h1 style="font-size: 5rem; margin: 0;">🗑️</h1>
+            <h3 style="color: #666;">Der Papierkorb ist leer</h3>
+            <p style="color: #999;">Gelöschte Aufgaben erscheinen hier und können wiederhergestellt werden.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Animation optionnelle
+        if st.button("🎮 Demo: Beispiel-Aufgabe löschen"):
+            # Créer une tâche exemple dans la corbeille pour la démo
+            demo_task = {
+                "id": 999,
+                "title": "Beispielaufgabe für Demo",
+                "category": "Demo",
+                "priority": "Niedrig",
+                "deadline": "2024-12-31",
+                "notes": "Diese Aufgabe dient als Beispiel",
+                "estimated_time": 30,
+                "total_time_spent": 15,
+                "deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            save_recycle_bin([demo_task])
+            st.rerun()
