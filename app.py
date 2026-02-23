@@ -991,7 +991,10 @@ with tab1:
             col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
             
             with col1:
-                progress = min(task.get('total_time_spent', 0) / max(task.get('estimated_time', 60), 1), 1.0)
+                # Calcul sécurisé de la progression
+                total_spent = float(task.get('total_time_spent', 0))
+                estimated = float(max(task.get('estimated_time', 60), 1))
+                progress = max(0.0, min(total_spent / estimated, 1.0))  # Entre 0 et 1
                 st.progress(progress)
             
             with col2:
