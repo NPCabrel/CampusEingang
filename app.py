@@ -466,8 +466,12 @@ with tab1:
         st.info("✨ Keine Aufgaben vorhanden. Erstelle deine erste Aufgabe!")
 
 # TAB 2: Neue Aufgabe
+# TAB 2: Neue Aufgabe
 with tab2:
     st.header("➕ Neue Aufgabe mit Zeit-Schätzung")
+    
+    # DÉFINIR today ICI pour cette section
+    today = date.today()
     
     with st.form("new_task_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -480,7 +484,7 @@ with tab2:
                 options=["Niedrig", "Mittel", "Hoch"], value="Mittel")
         
         with col2:
-            deadline = st.date_input("📅 Frist", min_value=today)
+            deadline = st.date_input("📅 Frist", min_value=today)  # today est maintenant défini
             estimated_time = st.number_input("⏱️ Geschätzte Zeit (Minuten)", 
                 min_value=5, max_value=480, value=60, step=5)
             link = st.text_input("🔗 Link (optional)", placeholder="https://...")
