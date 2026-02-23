@@ -1243,9 +1243,9 @@ with tab4:
 # ==================== TAB 5: FEEDBACK ====================
 with tab5:
     st.header(t('feedback_header'))
-    
+
     col1, col2 = st.columns([2, 1])
-    
+
     with col1:
         with st.form("feedback_form"):
             name = st.text_input(f"👤 {t('name')}", placeholder="Max Mustermann")
@@ -1253,15 +1253,15 @@ with tab5:
             feedback_type = st.selectbox(f"📝 {t('feedback_type')}", t('feedback_types'))
             urgency = st.select_slider(f"⚠️ {t('urgency')}", options=t('urgency_options'), value=t('urgency_options')[1])
             feedback = st.text_area(f"💬 {t('feedback_text')} *", height=150)
-            
+
             submitted = st.form_submit_button(f"📨 {t('send')}", use_container_width=True, type="primary")
-            
+
             if submitted and feedback:
                 with st.spinner("📤 Senden..."):
                     ensure_files()
                     with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                         entries = json.load(f)
-                    
+
                     entry = {
                         "id": len(entries) + 1,
                         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1273,10 +1273,10 @@ with tab5:
                         "language": st.session_state.get('language', 'DE')
                     }
                     entries.append(entry)
-                    
+
                     with open(SURVEY_FILE, "w", encoding="utf-8") as f:
                         json.dump(entries, f, ensure_ascii=False, indent=2)
-                    
+
                     if SENDGRID_API_KEY:
                         success, message = send_feedback_email(
                             name or "Anonym",
@@ -1286,7 +1286,7 @@ with tab5:
                             urgency,
                             st.session_state.get('language', 'DE')
                         )
-                        
+
                         if success:
                             st.success(t('feedback_sent'))
                             st.balloons()
@@ -1294,28 +1294,28 @@ with tab5:
                             st.warning("📝 Feedback wurde lokal gespeichert.")
                     else:
                         st.info("📝 Feedback wurde lokal gespeichert (Email nicht konfiguriert).")
-    
+
     with col2:
         st.subheader("📊 " + t('stats'))
         if os.path.exists(SURVEY_FILE):
             with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                 entries = json.load(f)
-            
+
             if entries:
                 st.metric(t('feedback_header'), len(entries))
                 last = entries[-1]
                 st.markdown(f"""
-                **{t('name')}:** {last.get('name', 'Anonym')}  
-                **{t('urgency')}:** {last.get('urgency', 'Mittel')}  
+                **{t('name')}:** {last.get('name', 'Anonym')}
+                **{t('urgency')}:** {last.get('urgency', 'Mittel')}
                 **{t('feedback_text')}:** {last.get('feedback', '')[:50]}...
                 """)
 
 # ==================== TAB 6: PAPIERKORB ====================
 with tab6:
     st.header(t('recycle_bin'))
-    
+
     recycle_bin = load_recycle_bin()
-    
+
     if recycle_bin:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -1327,9 +1327,9 @@ with tab6:
                     if st.button("Ja, " + t('delete')):
                         save_recycle_bin([])
                         st.rerun()
-        
+
         st.markdown("---")
-        
+
         for idx, task in enumerate(recycle_bin):
             deleted_info = ""
             if 'deleted_at' in task:
@@ -1344,7 +1344,7 @@ with tab6:
                         deleted_info = f"🔸 {t('deleted_at')}: {days} {t('days_ago')}"
                 except:
                     deleted_info = f"🔸 {task['deleted_at']}"
-            
+
             st.markdown(f"""
             <div style="background: #f3e5f5; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 5px solid #9b59b6;">
                 <div style="display: flex; justify-content: space-between;">
@@ -1354,7 +1354,7 @@ with tab6:
                 <p style="color: #666;">📂 {task.get('category', '')} | 🎯 {task.get('priority', '')}</p>
             </div>
             """, unsafe_allow_html=True)
-            
+
             col1, col2 = st.columns(2)
             with col1:
                 if st.button(t('restore'), key=f"restore_{task.get('id', idx)}", use_container_width=True):
@@ -1367,14 +1367,11 @@ with tab6:
                         data['next_id'] = max(data.get('next_id', 1), new_id + 1)
                         save_data(data)
                         st.rerun()
-            
             with col2:
                 if st.button(t('permanent_delete'), key=f"perm_{task.get('id', idx)}", use_container_width=True):
                     permanently_delete(task['id'])
                     st.rerun()
-            
             st.divider()
-    
     else:
         st.markdown(f"""
         <div style="text-align: center; padding: 50px; background: #f3e5f5; border-radius: 20px;">
