@@ -1,4 +1,4 @@
-# app.py - CampusEingang Version Finale (CORRIGÉE)
+# app.py - CampusEingang-Assistent Version Finale
 
 import streamlit as st
 import pandas as pd
@@ -15,7 +15,7 @@ import hashlib
 
 # Configuration de la page
 st.set_page_config(
-    page_title="CampusEingang", 
+    page_title="Campus Eingang-Assistent", 
     page_icon="🎓", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -34,7 +34,7 @@ LANGUAGES = {
 TRANSLATIONS = {
     'DE': {
         # Général
-        'app_title': '🎓 CampusEingang - Studienstart-Assistent',
+        'app_title': '🎓 Campus Eingang-Assistent',
         'active_timer': '⏳ Aktiver Timer',
         'no_active_timer': '💤 Kein aktiver Timer',
         'quick_stats': '📊 Quick Stats',
@@ -62,6 +62,7 @@ TRANSLATIONS = {
         'delete': '🗑️ Löschen',
         'restore': '♻️ Wiederherstellen',
         'permanent_delete': '❌ Endgültig löschen',
+        'cancel': 'Abbrechen',
         
         # Nouvelle tâche
         'new_task': '➕ Neue Aufgabe',
@@ -74,7 +75,7 @@ TRANSLATIONS = {
         # Timer
         'timer_running': '▶️ Läuft:',
         'timer_stopped': '⏹️ Gestoppt',
-        'time_recorded': '⏱️ Zeit erfasst:',
+        'time_recorded': '⏱️ Zeiterfassung',
         
         # Feedback
         'feedback_header': '🗣️ Feedback & Probleme',
@@ -114,7 +115,7 @@ TRANSLATIONS = {
         'h': 'h',
     },
     'FR': {
-        'app_title': '🎓 CampusEingang - Assistant de Rentrée',
+        'app_title': '🎓 Campus Eingang-Assistant',
         'active_timer': '⏳ Minuteur actif',
         'no_active_timer': '💤 Aucun minuteur actif',
         'quick_stats': '📊 Stats rapides',
@@ -140,6 +141,7 @@ TRANSLATIONS = {
         'delete': '🗑️ Supprimer',
         'restore': '♻️ Restaurer',
         'permanent_delete': '❌ Supprimer définitivement',
+        'cancel': 'Annuler',
         'new_task': '➕ Nouvelle tâche',
         'title': 'Titre',
         'category_options': ['Inscription', 'Organisation', 'Examens', 'Finances', 'Logement', 'Autres'],
@@ -148,7 +150,7 @@ TRANSLATIONS = {
         'task_created': '✅ Tâche créée avec succès!',
         'timer_running': '▶️ En cours:',
         'timer_stopped': '⏹️ Arrêté',
-        'time_recorded': '⏱️ Temps enregistré:',
+        'time_recorded': '⏱️ Suivi du temps',
         'feedback_header': '🗣️ Feedback & Problèmes',
         'your_feedback': 'Votre feedback',
         'name': 'Nom',
@@ -180,7 +182,7 @@ TRANSLATIONS = {
         'h': 'h',
     },
     'EN': {
-        'app_title': '🎓 CampusEingang - Study Start Assistant',
+        'app_title': '🎓 Campus Eingang-Assistant',
         'active_timer': '⏳ Active Timer',
         'no_active_timer': '💤 No active timer',
         'quick_stats': '📊 Quick Stats',
@@ -206,6 +208,7 @@ TRANSLATIONS = {
         'delete': '🗑️ Delete',
         'restore': '♻️ Restore',
         'permanent_delete': '❌ Permanently Delete',
+        'cancel': 'Cancel',
         'new_task': '➕ New Task',
         'title': 'Title',
         'category_options': ['Enrollment', 'Organizational', 'Exams', 'Finances', 'Housing', 'Others'],
@@ -214,7 +217,7 @@ TRANSLATIONS = {
         'task_created': '✅ Task created successfully!',
         'timer_running': '▶️ Running:',
         'timer_stopped': '⏹️ Stopped',
-        'time_recorded': '⏱️ Time recorded:',
+        'time_recorded': '⏱️ Time Tracking',
         'feedback_header': '🗣️ Feedback & Issues',
         'your_feedback': 'Your Feedback',
         'name': 'Name',
@@ -246,7 +249,7 @@ TRANSLATIONS = {
         'h': 'h',
     },
     'ES': {
-        'app_title': '🎓 CampusEingang - Asistente de Inicio',
+        'app_title': '🎓 Campus Eingang-Asistente',
         'active_timer': '⏳ Temporizador activo',
         'no_active_timer': '💤 Sin temporizador activo',
         'quick_stats': '📊 Estadísticas rápidas',
@@ -272,6 +275,7 @@ TRANSLATIONS = {
         'delete': '🗑️ Eliminar',
         'restore': '♻️ Restaurar',
         'permanent_delete': '❌ Eliminar permanentemente',
+        'cancel': 'Cancelar',
         'new_task': '➕ Nueva tarea',
         'title': 'Título',
         'category_options': ['Matrícula', 'Organización', 'Exámenes', 'Finanzas', 'Vivienda', 'Otros'],
@@ -280,7 +284,7 @@ TRANSLATIONS = {
         'task_created': '✅ ¡Tarea creada con éxito!',
         'timer_running': '▶️ En curso:',
         'timer_stopped': '⏹️ Detenido',
-        'time_recorded': '⏱️ Tiempo registrado:',
+        'time_recorded': '⏱️ Registro de tiempo',
         'feedback_header': '🗣️ Feedback y Problemas',
         'your_feedback': 'Tu feedback',
         'name': 'Nombre',
@@ -312,7 +316,7 @@ TRANSLATIONS = {
         'h': 'h',
     },
     'IT': {
-        'app_title': '🎓 CampusEingang - Assistente di Avvio',
+        'app_title': '🎓 Campus Eingang-Assistente',
         'active_timer': '⏳ Timer attivo',
         'no_active_timer': '💤 Nessun timer attivo',
         'quick_stats': '📊 Statistiche rapide',
@@ -338,6 +342,7 @@ TRANSLATIONS = {
         'delete': '🗑️ Elimina',
         'restore': '♻️ Ripristina',
         'permanent_delete': '❌ Elimina definitivamente',
+        'cancel': 'Annulla',
         'new_task': '➕ Nuovo compito',
         'title': 'Titolo',
         'category_options': ['Immatricolazione', 'Organizzativo', 'Esami', 'Finanze', 'Alloggio', 'Altri'],
@@ -346,7 +351,7 @@ TRANSLATIONS = {
         'task_created': '✅ Compito creato con successo!',
         'timer_running': '▶️ In corso:',
         'timer_stopped': '⏹️ Fermato',
-        'time_recorded': '⏱️ Tempo registrato:',
+        'time_recorded': '⏱️ Tracciamento tempo',
         'feedback_header': '🗣️ Feedback e Problemi',
         'your_feedback': 'Il tuo feedback',
         'name': 'Nome',
@@ -424,27 +429,23 @@ default_data = {
     "next_id": 3
 }
 
-# ==================== FONCTIONS DE GESTION DES DONNÉES (CORRIGÉES) ====================
+# ==================== FONCTIONS DE GESTION DES DONNÉES ====================
 def ensure_files():
     """Crée les fichiers de données s'ils n'existent pas avec un contenu valide"""
     os.makedirs(DATA_DIR, exist_ok=True)
     
-    # DATA_FILE
     if not os.path.exists(DATA_FILE) or os.path.getsize(DATA_FILE) == 0:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(default_data, f, ensure_ascii=False, indent=2)
     
-    # TIME_TRACKING_FILE
     if not os.path.exists(TIME_TRACKING_FILE) or os.path.getsize(TIME_TRACKING_FILE) == 0:
         with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
     
-    # SURVEY_FILE
     if not os.path.exists(SURVEY_FILE) or os.path.getsize(SURVEY_FILE) == 0:
         with open(SURVEY_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
     
-    # RECYCLE_BIN_FILE
     if not os.path.exists(RECYCLE_BIN_FILE) or os.path.getsize(RECYCLE_BIN_FILE) == 0:
         with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
@@ -458,14 +459,12 @@ def load_data():
                 try:
                     return json.load(f)
                 except json.JSONDecodeError:
-                    print("Fichier data.json corrompu, réinitialisation...")
                     save_data(default_data)
                     return default_data
         else:
             save_data(default_data)
             return default_data
-    except Exception as e:
-        print(f"Erreur lors du chargement des données: {e}")
+    except Exception:
         return default_data
 
 def save_data(data):
@@ -481,14 +480,12 @@ def load_time_entries():
                 try:
                     return json.load(f)
                 except json.JSONDecodeError:
-                    print("Fichier time_tracking.json corrompu, réinitialisation...")
                     save_time_entries([])
                     return []
         else:
             save_time_entries([])
             return []
-    except Exception as e:
-        print(f"Erreur lors du chargement des temps: {e}")
+    except Exception:
         return []
 
 def save_time_entries(entries):
@@ -504,14 +501,12 @@ def load_recycle_bin():
                 try:
                     return json.load(f)
                 except json.JSONDecodeError:
-                    print("Fichier recycle_bin.json corrompu, réinitialisation...")
                     save_recycle_bin([])
                     return []
         else:
             save_recycle_bin([])
             return []
-    except Exception as e:
-        print(f"Erreur lors du chargement de la corbeille: {e}")
+    except Exception:
         return []
 
 def save_recycle_bin(items):
@@ -522,29 +517,19 @@ def move_to_recycle_bin(task):
     """Déplace une tâche vers la corbeille avec nettoyage des données"""
     recycle_bin = load_recycle_bin()
     
-    # Créer une copie propre de la tâche avec seulement des types JSON serializables
     task_clean = {}
-    
-    # Liste des clés à conserver
     for key, value in task.items():
-        # Convertir les types non-sérialisables
-        if hasattr(value, 'isoformat'):  # Pour les dates
-            task_clean[key] = value.isoformat() if callable(getattr(value, 'isoformat')) else str(value)
+        if isinstance(value, (datetime, date)):
+            task_clean[key] = value.isoformat()
         elif isinstance(value, (pd.Timestamp, pd.Timedelta)):
             task_clean[key] = str(value)
-        elif isinstance(value, (datetime, date)):
-            task_clean[key] = value.isoformat()
         else:
-            # Garder les autres types (str, int, float, bool, None)
             try:
-                # Tester si sérialisable
                 json.dumps(value)
                 task_clean[key] = value
             except (TypeError, OverflowError):
-                # Si pas sérialisable, convertir en string
                 task_clean[key] = str(value)
     
-    # Ajouter les métadonnées
     task_clean['deleted_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     task_clean['can_be_restored'] = True
     
@@ -587,80 +572,49 @@ def send_feedback_email(name, email, feedback_type, feedback, urgency, lang='DE'
             
         sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
         
-        urgency_labels = {
-            'DE': ['Niedrig', 'Mittel', 'Hoch', 'Kritisch'],
-            'FR': ['Basse', 'Moyenne', 'Haute', 'Critique'],
-            'EN': ['Low', 'Medium', 'High', 'Critical'],
-            'ES': ['Baja', 'Media', 'Alta', 'Crítica'],
-            'IT': ['Bassa', 'Media', 'Alta', 'Critica']
-        }
-        
         html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body {{ font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; }}
+                body {{ font-family: 'Segoe UI', Arial, sans-serif; }}
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
                 .header {{ background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
                           color: white; padding: 25px; border-radius: 15px 15px 0 0; }}
                 .content {{ background: #f8f9fa; padding: 25px; border-radius: 0 0 15px 15px; }}
                 .field {{ margin: 20px 0; }}
-                .label {{ font-weight: bold; color: #8e44ad; font-size: 1.1em; }}
-                .value {{ background: white; padding: 12px; border-radius: 8px; margin-top: 5px;
+                .label {{ font-weight: bold; color: #8e44ad; }}
+                .value {{ background: white; padding: 12px; border-radius: 8px; 
                          border-left: 4px solid #9b59b6; }}
-                .urgency {{ display: inline-block; padding: 5px 15px; border-radius: 20px; 
-                          font-weight: bold; }}
-                .urgency-Hoch, .urgency-Haute, .urgency-High, .urgency-Alta, .urgency-Critical {{ 
-                    background: #ff6b6b; color: white; }}
-                .urgency-Mittel, .urgency-Moyenne, .urgency-Medium, .urgency-Media {{ 
-                    background: #feca57; color: black; }}
-                .urgency-Niedrig, .urgency-Basse, .urgency-Low, .urgency-Baja, .urgency-Bassa {{ 
-                    background: #48dbfb; color: black; }}
-                .footer {{ text-align: center; margin-top: 20px; color: #999; }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1 style="margin:0;">📬 Neues Feedback - CampusEingang</h1>
-                    <p style="margin:5px 0 0;">{datetime.now().strftime('%d.%m.%Y um %H:%M')}</p>
+                    <h1>📬 Neues Feedback - Campus Eingang-Assistent</h1>
+                    <p>{datetime.now().strftime('%d.%m.%Y um %H:%M')}</p>
                 </div>
                 <div class="content">
                     <div class="field">
                         <div class="label">👤 Von:</div>
                         <div class="value"><strong>{name}</strong></div>
                     </div>
-                    
                     <div class="field">
                         <div class="label">📧 Kontakt:</div>
                         <div class="value">{email if email else 'Nicht angegeben'}</div>
                     </div>
-                    
                     <div class="field">
                         <div class="label">📝 Art:</div>
                         <div class="value">{feedback_type}</div>
                     </div>
-                    
                     <div class="field">
                         <div class="label">⚠️ Dringlichkeit:</div>
-                        <div class="value">
-                            <span class="urgency urgency-{urgency}">{urgency}</span>
-                        </div>
+                        <div class="value">{urgency}</div>
                     </div>
-                    
                     <div class="field">
                         <div class="label">💬 Feedback:</div>
-                        <div class="value" style="white-space: pre-line;">{feedback}</div>
+                        <div class="value">{feedback}</div>
                     </div>
-                    
-                    <div class="field">
-                        <div class="label">🌐 Sprache:</div>
-                        <div class="value">{LANGUAGES.get(lang, 'DE')}</div>
-                    </div>
-                </div>
-                <div class="footer">
-                    <p>© CampusEingang - Alle Rechte vorbehalten</p>
                 </div>
             </div>
         </body>
@@ -670,18 +624,18 @@ def send_feedback_email(name, email, feedback_type, feedback, urgency, lang='DE'
         message = Mail(
             from_email=FROM_EMAIL,
             to_emails=TO_EMAIL,
-            subject=f'📬 CampusEingang - Neues Feedback von {name}',
+            subject=f'📬 Campus Eingang-Assistent - Neues Feedback von {name}',
             html_content=html_content
         )
         
-        response = sg.send(message)
+        sg.send(message)
         
         if email:
             confirm_message = Mail(
                 from_email=FROM_EMAIL,
                 to_emails=email,
                 subject='✅ Dein Feedback wurde empfangen',
-                plain_text_content=f'Hallo {name},\n\ndanke für dein Feedback! Wir werden es schnellstmöglich bearbeiten.\n\nDein Feedback: {feedback}\n\nVielen Dank!\nDein CampusEingang-Team'
+                plain_text_content=f'Hallo {name},\n\ndanke für dein Feedback!\n\nDein Campus Eingang-Assistent Team'
             )
             sg.send(confirm_message)
         
@@ -704,7 +658,7 @@ if 'current_time' not in st.session_state:
 if 'language' not in st.session_state:
     st.session_state.language = 'DE'
 
-# ==================== CSS PERSONNALISÉ (VIOLET CLAIR) ====================
+# ==================== CSS PERSONNALISÉ ====================
 st.markdown("""
 <style>
     .main-header {
@@ -734,7 +688,6 @@ st.markdown("""
         padding: 5px 10px;
         border-radius: 20px;
         font-size: 0.8rem;
-        font-weight: 600;
     }
     .badge-today {
         background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
@@ -742,7 +695,6 @@ st.markdown("""
         padding: 5px 10px;
         border-radius: 20px;
         font-size: 0.8rem;
-        font-weight: 600;
     }
     .badge-upcoming {
         background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%);
@@ -750,7 +702,6 @@ st.markdown("""
         padding: 5px 10px;
         border-radius: 20px;
         font-size: 0.8rem;
-        font-weight: 600;
     }
     .active-timer {
         background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
@@ -922,7 +873,7 @@ st.markdown(f'<h1 class="main-header">{t("app_title")}</h1>', unsafe_allow_html=
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     t('tasks_header'), 
     t('new_task'), 
-    t('time_recorded').replace('⏱️ ', '⏱️ '), 
+    t('time_recorded'), 
     t('analysis'),
     t('feedback_header'),
     t('recycle_bin')
@@ -984,152 +935,138 @@ with tab1:
                     {badge}
                 </div>
                 <p style="color: #666;">📂 {task['category']} | 🎯 {priority}</p>
-                <p style="color: #666;">⏱️ {task.get('total_time_spent', 0):.0f} {t('min')} / {task.get('estimated_time', 60)} {t('min')}</p>
+                <p style="color: #666;">⏱️ {float(task.get('total_time_spent', 0)):.0f} {t('min')} / {float(task.get('estimated_time', 60)):.0f} {t('min')}</p>
             </div>
             """, unsafe_allow_html=True)
             
             col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
             
-            # Dans TAB 1, après l'affichage de la carte de tâche, remplace toute la partie des boutons par :
-
-col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
-
-with col1:
-    # Progression
-    try:
-        total_spent = float(task.get('total_time_spent', 0))
-        estimated = float(max(task.get('estimated_time', 60), 1))
-        progress = max(0.0, min(total_spent / estimated, 1.0))
-        st.progress(progress)
-    except:
-        st.progress(0.0)
-
-with col2:
-    # Timer
-    if not task.get("done", False):
-        if not st.session_state.active_timer:
-            if st.button(t('start'), key=f"start_{task['id']}_{idx}", use_container_width=True):
-                st.session_state.active_timer = True
-                st.session_state.timer_running = True
-                st.session_state.timer_start = datetime.now()
-                st.session_state.timer_task_id = task["id"]
-                st.rerun()
-        elif st.session_state.timer_task_id == task["id"]:
-            if st.session_state.timer_running:
-                if st.button(t('pause'), key=f"pause_{task['id']}_{idx}", use_container_width=True):
-                    st.session_state.timer_running = False
+            with col1:
+                try:
+                    total_spent = float(task.get('total_time_spent', 0))
+                    estimated = float(max(task.get('estimated_time', 60), 1))
+                    progress = max(0.0, min(total_spent / estimated, 1.0))
+                    st.progress(progress)
+                except:
+                    st.progress(0.0)
+            
+            with col2:
+                if not task.get("done", False):
+                    if not st.session_state.active_timer:
+                        if st.button(t('start'), key=f"start_{task['id']}_{idx}", use_container_width=True):
+                            st.session_state.active_timer = True
+                            st.session_state.timer_running = True
+                            st.session_state.timer_start = datetime.now()
+                            st.session_state.timer_task_id = task["id"]
+                            st.rerun()
+                    elif st.session_state.timer_task_id == task["id"]:
+                        if st.session_state.timer_running:
+                            if st.button(t('pause'), key=f"pause_{task['id']}_{idx}", use_container_width=True):
+                                st.session_state.timer_running = False
+                                st.rerun()
+                        else:
+                            if st.button(t('start'), key=f"resume_{task['id']}_{idx}", use_container_width=True):
+                                st.session_state.timer_running = True
+                                st.rerun()
+            
+            with col3:
+                if st.button(t('done'), key=f"done_{task['id']}_{idx}", use_container_width=True):
+                    data = load_data()
+                    for t in data["tasks"]:
+                        if t["id"] == task["id"]:
+                            t["done"] = not t.get("done", False)
+                            break
+                    save_data(data)
                     st.rerun()
-            else:
-                if st.button(t('start'), key=f"resume_{task['id']}_{idx}", use_container_width=True):
-                    st.session_state.timer_running = True
+            
+            with col4:
+                edit_key = f"edit_mode_{task['id']}"
+                if st.button(t('edit'), key=f"edit_btn_{task['id']}_{idx}", use_container_width=True):
+                    st.session_state[edit_key] = True
                     st.rerun()
-
-with col3:
-    # Bouton Done
-    if st.button(t('done'), key=f"done_{task['id']}_{idx}", use_container_width=True):
-        data = load_data()
-        for t in data["tasks"]:
-            if t["id"] == task["id"]:
-                t["done"] = not t.get("done", False)
-                break
-        save_data(data)
-        st.rerun()
-
-with col4:
-    # Bouton Edit - CORRIGÉ
-    edit_key = f"edit_mode_{task['id']}"
-    if st.button(t('edit'), key=f"edit_btn_{task['id']}_{idx}", use_container_width=True):
-        st.session_state[edit_key] = True
-        st.rerun()
-
-with col5:
-    # Bouton Delete
-    if st.button("🗑️", key=f"del_{task['id']}_{idx}", use_container_width=True):
-        # Convertir en dictionnaire simple
-        task_dict = {
-            'id': int(task['id']),
-            'title': str(task['title']),
-            'category': str(task.get('category', '')),
-            'priority': str(task.get('priority', 'Mittel')),
-            'deadline': str(task.get('deadline', '')),
-            'estimated_time': float(task.get('estimated_time', 60)),
-            'total_time_spent': float(task.get('total_time_spent', 0)),
-            'done': bool(task.get('done', False)),
-            'notes': str(task.get('notes', '')),
-            'link': str(task.get('link', ''))
-        }
-        
-        move_to_recycle_bin(task_dict)
-        
-        data = load_data()
-        data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
-        save_data(data)
-        
-        st.success("✅ Aufgabe in den Papierkorb verschoben!")
-        st.rerun()
-
-# Formulaire d'édition - CORRIGÉ
-if st.session_state.get(edit_key, False):
-    with st.form(key=f"edit_form_{task['id']}_{idx}"):
-        st.markdown(f"**{t('edit')}: {task['title']}**")
-        
-        new_title = st.text_input(t('title'), value=task['title'])
-        
-        # Catégorie
-        current_category = task.get('category', t('category_options')[0])
-        cat_index = 0
-        if current_category in t('category_options'):
-            cat_index = t('category_options').index(current_category)
-        new_category = st.selectbox(t('category'), t('category_options'), index=cat_index)
-        
-        # Priorité
-        current_priority = task.get('priority', t('priority_options')[1])
-        prio_index = 1
-        if current_priority in t('priority_options'):
-            prio_index = t('priority_options').index(current_priority)
-        new_priority = st.selectbox(t('priority'), t('priority_options'), index=prio_index)
-        
-        # Temps estimé
-        try:
-            current_estimated = float(task.get('estimated_time', 60))
-        except:
-            current_estimated = 60
-        new_estimated = st.number_input(t('estimated_time'), 
-                                       value=current_estimated, 
-                                       min_value=1.0, 
-                                       step=5.0)
-        
-        new_notes = st.text_area(t('notes'), value=task.get('notes', ''))
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.form_submit_button("💾 " + t('edit')):
-                data = load_data()
-                for t in data["tasks"]:
-                    if t["id"] == task["id"]:
-                        t.update({
-                            "title": new_title,
-                            "category": new_category,
-                            "priority": new_priority,
-                            "estimated_time": float(new_estimated),
-                            "notes": new_notes
-                        })
-                        break
-                save_data(data)
-                if edit_key in st.session_state:
-                    del st.session_state[edit_key]
-                st.success("✅ Aufgabe aktualisiert!")
-                st.rerun()
-        
-        with col2:
-            if st.form_submit_button("❌ Abbrechen"):
-                if edit_key in st.session_state:
-                    del st.session_state[edit_key]
-                st.rerun()
+            
+            with col5:
+                if st.button("🗑️", key=f"del_{task['id']}_{idx}", use_container_width=True):
+                    task_dict = {
+                        'id': int(task['id']),
+                        'title': str(task['title']),
+                        'category': str(task.get('category', '')),
+                        'priority': str(task.get('priority', 'Mittel')),
+                        'deadline': str(task.get('deadline', '')),
+                        'estimated_time': float(task.get('estimated_time', 60)),
+                        'total_time_spent': float(task.get('total_time_spent', 0)),
+                        'done': bool(task.get('done', False)),
+                        'notes': str(task.get('notes', '')),
+                        'link': str(task.get('link', ''))
+                    }
+                    
+                    move_to_recycle_bin(task_dict)
+                    
+                    data = load_data()
+                    data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
+                    save_data(data)
+                    
+                    st.success("✅ Aufgabe in den Papierkorb verschoben!")
+                    st.rerun()
+            
+            if st.session_state.get(edit_key, False):
+                with st.form(key=f"edit_form_{task['id']}_{idx}"):
+                    st.markdown(f"**{t('edit')}: {task['title']}**")
+                    
+                    new_title = st.text_input(t('title'), value=task['title'])
+                    
+                    current_category = task.get('category', t('category_options')[0])
+                    cat_index = 0
+                    if current_category in t('category_options'):
+                        cat_index = t('category_options').index(current_category)
+                    new_category = st.selectbox(t('category'), t('category_options'), index=cat_index)
+                    
+                    current_priority = task.get('priority', t('priority_options')[1])
+                    prio_index = 1
+                    if current_priority in t('priority_options'):
+                        prio_index = t('priority_options').index(current_priority)
+                    new_priority = st.selectbox(t('priority'), t('priority_options'), index=prio_index)
+                    
+                    try:
+                        current_estimated = float(task.get('estimated_time', 60))
+                    except:
+                        current_estimated = 60
+                    new_estimated = st.number_input(t('estimated_time'), 
+                                                   value=current_estimated, 
+                                                   min_value=1.0, 
+                                                   step=5.0)
+                    
+                    new_notes = st.text_area(t('notes'), value=task.get('notes', ''))
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.form_submit_button("💾 " + t('edit')):
+                            data = load_data()
+                            for t in data["tasks"]:
+                                if t["id"] == task["id"]:
+                                    t.update({
+                                        "title": new_title,
+                                        "category": new_category,
+                                        "priority": new_priority,
+                                        "estimated_time": float(new_estimated),
+                                        "notes": new_notes
+                                    })
+                                    break
+                            save_data(data)
+                            if edit_key in st.session_state:
+                                del st.session_state[edit_key]
+                            st.success("✅ Aufgabe aktualisiert!")
+                            st.rerun()
+                    
+                    with col2:
+                        if st.form_submit_button("❌ " + t('cancel')):
+                            if edit_key in st.session_state:
+                                del st.session_state[edit_key]
+                            st.rerun()
             
             st.divider()
-    # else:
-    #     st.info(f"✨ {t('tasks_header')}")
+    else:
+        st.info(f"✨ {t('tasks_header')}")
 
 # ==================== TAB 2: NEUE AUFGABE ====================
 with tab2:
@@ -1177,7 +1114,7 @@ with tab2:
 
 # ==================== TAB 3: ZEITERFASSUNG ====================
 with tab3:
-    st.header("⏱️ " + t('time_recorded').replace('⏱️ ', ''))
+    st.header("⏱️ " + t('time_recorded'))
     
     time_entries = load_time_entries()
     
@@ -1187,7 +1124,7 @@ with tab3:
         
         daily_time = entries_df.groupby('date')['duration_minutes'].sum().reset_index()
         fig = px.bar(daily_time, x='date', y='duration_minutes', 
-                     title=t('time_recorded').replace('⏱️ ', ''),
+                     title=t('time_recorded'),
                      labels={'duration_minutes': t('minutes'), 'date': t('deadline')},
                      color_discrete_sequence=['#9b59b6'])
         st.plotly_chart(fig, use_container_width=True)
@@ -1210,7 +1147,7 @@ with tab3:
     else:
         st.info("⏳ " + t('time_recorded'))
 
-# ==================== TAB 4: ANALYSEN (CORRIGÉE) ====================
+# ==================== TAB 4: ANALYSEN ====================
 with tab4:
     st.header(t('analysis'))
     
@@ -1307,9 +1244,9 @@ with tab4:
 # ==================== TAB 5: FEEDBACK ====================
 with tab5:
     st.header(t('feedback_header'))
-
+    
     col1, col2 = st.columns([2, 1])
-
+    
     with col1:
         with st.form("feedback_form"):
             name = st.text_input(f"👤 {t('name')}", placeholder="Max Mustermann")
@@ -1317,15 +1254,15 @@ with tab5:
             feedback_type = st.selectbox(f"📝 {t('feedback_type')}", t('feedback_types'))
             urgency = st.select_slider(f"⚠️ {t('urgency')}", options=t('urgency_options'), value=t('urgency_options')[1])
             feedback = st.text_area(f"💬 {t('feedback_text')} *", height=150)
-
+            
             submitted = st.form_submit_button(f"📨 {t('send')}", use_container_width=True, type="primary")
-
+            
             if submitted and feedback:
                 with st.spinner("📤 Senden..."):
                     ensure_files()
                     with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                         entries = json.load(f)
-
+                    
                     entry = {
                         "id": len(entries) + 1,
                         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1337,10 +1274,10 @@ with tab5:
                         "language": st.session_state.get('language', 'DE')
                     }
                     entries.append(entry)
-
+                    
                     with open(SURVEY_FILE, "w", encoding="utf-8") as f:
                         json.dump(entries, f, ensure_ascii=False, indent=2)
-
+                    
                     if SENDGRID_API_KEY:
                         success, message = send_feedback_email(
                             name or "Anonym",
@@ -1350,7 +1287,7 @@ with tab5:
                             urgency,
                             st.session_state.get('language', 'DE')
                         )
-
+                        
                         if success:
                             st.success(t('feedback_sent'))
                             st.balloons()
@@ -1358,28 +1295,28 @@ with tab5:
                             st.warning("📝 Feedback wurde lokal gespeichert.")
                     else:
                         st.info("📝 Feedback wurde lokal gespeichert (Email nicht konfiguriert).")
-
+    
     with col2:
         st.subheader("📊 " + t('stats'))
         if os.path.exists(SURVEY_FILE):
             with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                 entries = json.load(f)
-
+            
             if entries:
                 st.metric(t('feedback_header'), len(entries))
                 last = entries[-1]
                 st.markdown(f"""
-                **{t('name')}:** {last.get('name', 'Anonym')}
-                **{t('urgency')}:** {last.get('urgency', 'Mittel')}
+                **{t('name')}:** {last.get('name', 'Anonym')}  
+                **{t('urgency')}:** {last.get('urgency', 'Mittel')}  
                 **{t('feedback_text')}:** {last.get('feedback', '')[:50]}...
                 """)
 
 # ==================== TAB 6: PAPIERKORB ====================
 with tab6:
     st.header(t('recycle_bin'))
-
+    
     recycle_bin = load_recycle_bin()
-
+    
     if recycle_bin:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -1391,9 +1328,9 @@ with tab6:
                     if st.button("Ja, " + t('delete')):
                         save_recycle_bin([])
                         st.rerun()
-
+        
         st.markdown("---")
-
+        
         for idx, task in enumerate(recycle_bin):
             deleted_info = ""
             if 'deleted_at' in task:
@@ -1408,7 +1345,7 @@ with tab6:
                         deleted_info = f"🔸 {t('deleted_at')}: {days} {t('days_ago')}"
                 except:
                     deleted_info = f"🔸 {task['deleted_at']}"
-
+            
             st.markdown(f"""
             <div style="background: #f3e5f5; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 5px solid #9b59b6;">
                 <div style="display: flex; justify-content: space-between;">
@@ -1418,24 +1355,29 @@ with tab6:
                 <p style="color: #666;">📂 {task.get('category', '')} | 🎯 {task.get('priority', '')}</p>
             </div>
             """, unsafe_allow_html=True)
-
+            
             col1, col2 = st.columns(2)
             with col1:
-                if st.button(t('restore'), key=f"restore_{task.get('id', idx)}", use_container_width=True):
+                if st.button(t('restore'), key=f"restore_{task.get('id', idx)}_{idx}", use_container_width=True):
                     restored = restore_from_recycle_bin(task['id'])
                     if restored:
                         data = load_data()
                         new_id = max([t.get('id', 0) for t in data['tasks']] + [0]) + 1
                         restored['id'] = new_id
+                        restored['total_time_spent'] = float(restored.get('total_time_spent', 0))
+                        restored['estimated_time'] = float(max(restored.get('estimated_time', 60), 1))
                         data['tasks'].append(restored)
                         data['next_id'] = max(data.get('next_id', 1), new_id + 1)
                         save_data(data)
                         st.rerun()
+            
             with col2:
-                if st.button(t('permanent_delete'), key=f"perm_{task.get('id', idx)}", use_container_width=True):
+                if st.button(t('permanent_delete'), key=f"perm_{task.get('id', idx)}_{idx}", use_container_width=True):
                     permanently_delete(task['id'])
                     st.rerun()
+            
             st.divider()
+    
     else:
         st.markdown(f"""
         <div style="text-align: center; padding: 50px; background: #f3e5f5; border-radius: 20px;">
