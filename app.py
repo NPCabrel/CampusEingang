@@ -54,9 +54,9 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(["📋 Aufgaben", "➕ Neue Aufgabe", "📊 Analyse", "🗣️ Umfrage"])
     
     with tab1:
-    st.header("Meine Aufgaben")
-    data = load_data()
-    
+        st.header("Meine Aufgaben")
+        data = load_data()
+        
     # Afficher les tâches
     if data["tasks"]:
         df = pd.DataFrame(data["tasks"])
