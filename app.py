@@ -54,57 +54,88 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(["📋 Aufgaben", "➕ Neue Aufgabe", "📊 Analyse", "🗣️ Umfrage"])
     
     with tab1:
-        st.header("Meine Aufgaben")
-        data = load_data()
+    st.header("Meine Aufgaben")
+    data = load_data()
+    
+    # Afficher les tâches
+    if data["tasks"]:
+        df = pd.DataFrame(data["tasks"])
         
-        # Afficher les tâches
-        if data["tasks"]:
-            df = pd.DataFrame(data["tasks"])
-            
-            # Ajouter colonne "overdue"
-            def parse_deadline(s):
-                try:
-                    return datetime.strptime(s, "%Y-%m-%d").date() if s else None
-                except:
-                    return None
-            
-            df["deadline_date"] = df["deadline"].apply(parse_deadline)
-            today = date.today()
-            df["overdue"] = df.apply(lambda r: (not r.get("done", False)) and 
-                                     (r["deadline_date"] is not None) and 
-                                     (r["deadline_date"] < today), axis=1)
-            
-            # Tri
-            df = df.sort_values(by=["overdue", "deadline_date"], ascending=[False, True])
-            
-            # Afficher
-            for _, task in df.iterrows():
-                with st.container():
-                    cols = st.columns([0.05, 0.7, 0.25])
-                    with cols[0]:
-                        done = st.checkbox("", value=task.get("done", False), key=f"done_{task['id']}")
-                        if done != task.get("done", False):
-                            # Mettre à jour
-                            pass
-                    with cols[1]:
-                        st.subheader(task["title"])
-                        st.caption(f"Kategorie: {task['category']} | Frist: {task['deadline']}")
-                        if task.get("notes"):
-                            st.info(task["notes"])
-                        if task.get("link"):
-                            st.markdown(f"[🔗 Link]({task['link']})")
-                    with cols[2]:
-                        if task.get("overdue"):
+        # Ajouter colonne "overdue"
+        def parse_deadline(s):
+            try:
+                return datetime.strptime(s, "%Y-%m-%d").date() if s else None
+            except:
+                return None
+        
+        df["deadline_date"] = df["deadline"].apply(parse_deadline)
+        today = date.today()
+        df["overdue"] = df.apply(lambda r: (not r.get("done", False)) and 
+                                 (r["deadline_date"] is not None) and 
+                                 (r["deadline_date"] < today), axis=1)
+        
+        # Tri
+        df = df.sort_values(by=["overdue", "deadline_date"], ascending=[False, True])
+        
+        # Afficher chaque tâche
+        for idx, task in df.iterrows():
+            with st.container():
+                cols = st.columns([0.05, 0.5, 0.2, 0.1, 0.1])
+                
+                with cols[0]:
+                    # Checkbox pour "done"
+                    done = st.checkbox("", value=task.get("done", False), key=f"done_{task['id']}")
+                    if done != task.get("done", False):
+                        # Mettre à jour le statut
+                        data = load_data()
+                        for t in data["tasks"]:
+                            if t["id"] == task["id"]:
+                                t["done"] = done
+                                break
+                        save_data(data)
+                        st.rerun()
+                
+                with cols[1]:
+                    st.subheader(task["title"])
+                    st.caption(f"📂 {task['category']} | 📅 {task['deadline']}")
+                    if task.get("notes"):
+                        st.info(task["notes"])
+                    if task.get("link"):
+                        st.markdown(f"[🔗 Link]({task['link']})")
+                
+                with cols[2]:
+                    if task.get("overdue"):
+                        st.error("⚠️ Überfällig")
+                    elif task["deadline_date"]:
+                        days_left = (task["deadline_date"] - today).days
+                        if days_left < 0:
                             st.error("⚠️ Überfällig")
-                        elif task["deadline_date"]:
-                            days_left = (task["deadline_date"] - today).days
-                            if days_left < 7:
-                                st.warning(f"🔸 {days_left} Tage")
-                            else:
-                                st.success(f"🟢 {days_left} Tage")
-        
-        else:
-            st.info("Keine Aufgaben vorhanden.")
+                        elif days_left < 7:
+                            st.warning(f"🔸 {days_left} Tage")
+                        else:
+                            st.success(f"🟢 {days_left} Tage")
+                
+                with cols[3]:
+                    # Bouton d'édition (à implémenter)
+                    if st.button("✏️", key=f"edit_{task['id']}"):
+                        st.info("Édition à implémenter")
+                
+                with cols[4]:
+                    # BOUTON DE SUPPRESSION
+                    if st.button("🗑️", key=f"delete_{task['id']}"):
+                        # Demander confirmation
+                        if st.checkbox(f"Sûr de supprimer '{task['title']}'?", key=f"confirm_{task['id']}"):
+                            # Supprimer la tâche
+                            data = load_data()
+                            data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
+                            save_data(data)
+                            st.success(f"Aufgabe '{task['title']}' gelöscht!")
+                            st.rerun()
+                
+                st.divider()
+    
+    else:
+        st.info("Keine Aufgaben vorhanden.")
     
     with tab2:
         st.header("Neue Aufgabe hinzufügen")
