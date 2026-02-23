@@ -661,64 +661,432 @@ with tab4:
         st.info("📊 Keine Daten für Analysen vorhanden.")
 
 # TAB 5: Feedback
+# Imports supplémentaires en haut du fichier
+import sendgrid
+from sendgrid.helpers.mail import Mail
+import hmac
+import hashlib
+
+# Configuration email (à mettre après les autres configurations)
+# À remplacer par tes informations
+SENDGRID_API_KEY = st.secrets.get("SENDGRID_API_KEY", "TA_CLE_API_ICI")
+FROM_EMAIL = "campus@eingang.de"  # À vérifier dans SendGrid (sender verification)
+TO_EMAIL = "ton-email@example.com"  # Où tu veux recevoir les feedbacks
+
+def send_feedback_email(name, email, feedback_type, feedback, urgency):
+    """
+    Envoie un email avec les détails du feedback
+    """
+    try:
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        # Construction de l'email HTML
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                          color: white; padding: 20px; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f5f5f5; padding: 20px; border-radius: 0 0 10px 10px; }}
+                .field {{ margin: 15px 0; }}
+                .label {{ font-weight: bold; color: #667eea; }}
+                .value {{ background: white; padding: 10px; border-radius: 5px; margin-top: 5px; }}
+                .urgency {{ display: inline-block; padding: 5px 15px; border-radius: 20px; 
+                          font-weight: bold; }}
+                .urgency-Hoch {{ background: #ff6b6b; color: white; }}
+                .urgency-Mittel {{ background: #feca57; color: black; }}
+                .urgency-Niedrig {{ background: #48dbfb; color: black; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📬 Nouveau Feedback - CampusEingang</h1>
+                </div>
+                <div class="content">
+                    <div class="field">
+                        <div class="label">👤 De:</div>
+                        <div class="value">{name}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">📧 Email:</div>
+                        <div class="value">{email if email else 'Non renseigné'}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">📝 Type:</div>
+                        <div class="value">{feedback_type}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">⚠️ Dringlichkeit:</div>
+                        <div class="value">
+                            <span class="urgency urgency-{urgency}">{urgency}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">💬 Feedback:</div>
+                        <div class="value">{feedback}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">⏰ Zeitstempel:</div>
+                        <div class="value">{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Créer le message
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=TO_EMAIL,
+            subject=f'📬 CampusEingang - Neues Feedback von {name}',
+            html_content=html_content
+        )
+        
+        # Envoyer
+        response = sg.send(message)
+        
+        # Optionnel: Envoyer une confirmation à l'utilisateur
+        if email:
+            confirmation = Mail(
+                from_email=FROM_EMAIL,
+                to_emails=email,
+                subject='✅ Dein Feedback wurde empfangen - CampusEingang',
+                html_content=f'''
+                <h2>Danke für dein Feedback!</h2>
+                <p>Hallo {name},</p>
+                <p>wir haben dein Feedback erhalten und werden es schnellstmöglich bearbeiten.</p>
+                <p><strong>Dein Feedback:</strong> {feedback}</p>
+                <p>Vielen Dank für deine Hilfe, CampusEingang besser zu machen! 🎓</p>
+                '''
+            )
+            sg.send(confirmation)
+        
+        return True, "Email envoyé avec succès"
+    
+    except Exception as e:
+        return False, str(e)
+
+# Fonction pour vérifier l'intégrité des données
+def hash_feedback_id(feedback_id, timestamp):
+    """Crée un hash unique pour chaque feedback"""
+    secret = st.secrets.get("HASH_SECRET", "campus2026_secret")
+    text = f"{feedback_id}_{timestamp}_{secret}"
+    return hmac.new(secret.encode(), text.encode(), hashlib.sha256).hexdigest()[:8]
+
+# TAB 5: Feedback (Version Email)
 with tab5:
     st.header("🗣️ Feedback & Probleme")
     
-    col1, col2 = st.columns([1, 1])
+    # Créer des onglets pour une meilleure organisation
+    tab_send, tab_stats, tab_admin = st.tabs(["📝 Feedback senden", "📊 Statistiques", "🔐 Admin"])
     
-    with col1:
-        st.subheader("Neues Feedback")
-        with st.form("feedback_form"):
-            name = st.text_input("Name (optional)")
-            problem = st.text_area("💭 Dein Feedback / Problem *", 
-                                  placeholder="z.B. Funktion XYZ könnte verbessert werden...")
-            urgency = st.select_slider("Dringlichkeit", ["Niedrig", "Mittel", "Hoch", "Kritisch"])
+    # TAB: Envoyer un feedback
+    with tab_send:
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); 
+                        padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h3 style="margin-top:0;">Deine Meinung zählt! 💭</h3>
+                <p>Hilf uns, CampusEingang zu verbessern. Jedes Feedback wird ernst genommen!</p>
+            </div>
+            """, unsafe_allow_html=True)
             
-            submitted = st.form_submit_button("📨 Absenden", use_container_width=True)
-            if submitted and problem:
-                ensure_files()
+            with st.form("feedback_email_form"):
+                # Informations personnelles
+                col_name, col_email = st.columns(2)
+                with col_name:
+                    name = st.text_input(
+                        "👤 Dein Name", 
+                        placeholder="z.B. Max Mustermann",
+                        help="Wird nur für Rückfragen verwendet"
+                    )
+                with col_email:
+                    email = st.text_input(
+                        "📧 Deine E-Mail", 
+                        placeholder="max@example.com",
+                        help="Für Rückmeldung zu deinem Feedback"
+                    )
+                
+                # Type de feedback avec icônes
+                feedback_type = st.selectbox(
+                    "📌 Art des Feedbacks",
+                    [
+                        "💡 Verbesserungsvorschlag",
+                        "🐛 Bug/Fehler melden",
+                        "❓ Frage / Hilfe",
+                        "👍 Lob / Positive Rückmeldung",
+                        "👎 Kritik / Negatives Erlebnis",
+                        "🚀 Feature-Wunsch"
+                    ]
+                )
+                
+                # Dringlichkeit avec emojis
+                urgency = st.select_slider(
+                    "⚡ Dringlichkeit",
+                    options=["Niedrig", "Mittel", "Hoch", "Kritisch"],
+                    value="Mittel",
+                    help="Wie dringend ist dein Anliegen?"
+                )
+                
+                # Feedback texte
+                feedback = st.text_area(
+                    "💬 Dein Feedback *", 
+                    placeholder="""Was möchtest du uns mitteilen?
+                    
+                    - Was gefällt dir besonders?
+                    - Was könnte verbessert werden?
+                    - Hast du einen Fehler gefunden?
+                    - Fehlt eine Funktion?""",
+                    height=150
+                )
+                
+                # Options supplémentaires
+                col_anon, col_copy = st.columns(2)
+                with col_anon:
+                    anonymous = st.checkbox("🕵️ Anonym bleiben", help="Dein Name wird nicht übermittelt")
+                with col_copy:
+                    copy_me = st.checkbox("📋 Kopie an mich", value=True, help="Erhalte eine Bestätigung per Email")
+                
+                # Bouton d'envoi
+                submitted = st.form_submit_button(
+                    "📨 Feedback senden", 
+                    use_container_width=True,
+                    type="primary"
+                )
+                
+                if submitted and feedback:
+                    with st.spinner("📤 Envoi en cours..."):
+                        # Préparer les données
+                        final_name = "Anonym" if anonymous else (name or "Anonym")
+                        final_email = "" if anonymous else email
+                        
+                        # Sauvegarder localement (backup)
+                        ensure_files()
+                        with open(SURVEY_FILE, "r", encoding="utf-8") as f:
+                            entries = json.load(f)
+                        
+                        feedback_id = len(entries) + 1
+                        timestamp = datetime.now().isoformat()
+                        
+                        entry = {
+                            "id": feedback_id,
+                            "hash": hash_feedback_id(feedback_id, timestamp),
+                            "timestamp": timestamp,
+                            "name": final_name,
+                            "email": final_email,
+                            "type": feedback_type,
+                            "feedback": feedback,
+                            "urgency": urgency,
+                            "status": "Nouveau",
+                            "responded": False
+                        }
+                        entries.append(entry)
+                        
+                        with open(SURVEY_FILE, "w", encoding="utf-8") as f:
+                            json.dump(entries, f, ensure_ascii=False, indent=2)
+                        
+                        # Envoyer par email
+                        success, message = send_feedback_email(
+                            final_name, 
+                            final_email if copy_me else "",
+                            feedback_type, 
+                            feedback, 
+                            urgency
+                        )
+                        
+                        if success:
+                            st.success("✅ Feedback erfolgreich gesendet! Vielen Dank für deine Hilfe! 🎉")
+                            st.balloons()
+                            
+                            # Afficher un résumé
+                            with st.expander("📋 Zusammenfassung deines Feedbacks"):
+                                st.markdown(f"""
+                                **Name:** {final_name}  
+                                **Typ:** {feedback_type}  
+                                **Dringlichkeit:** {urgency}  
+                                **Feedback:** {feedback}
+                                """)
+                        else:
+                            st.error(f"❌ Fehler beim Senden: {message}")
+                            st.info("📝 Dein Feedback wurde lokal gespeichert und wird später gesendet.")
+        
+        with col2:
+            st.markdown("### 📊 Quick Stats")
+            
+            # Afficher des statistiques rapides
+            if os.path.exists(SURVEY_FILE):
                 with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                     entries = json.load(f)
                 
-                entry = {
-                    "name": name or "Anonym",
-                    "problem": problem,
-                    "urgency": urgency,
-                    "time": datetime.now().strftime("%Y-%m-%d %H:%M")
-                }
-                entries.append(entry)
-                
-                with open(SURVEY_FILE, "w", encoding="utf-8") as f:
-                    json.dump(entries, f, ensure_ascii=False, indent=2)
-                
-                st.success("✅ Danke für dein Feedback!")
-                st.balloons()
+                if entries:
+                    # Dernier feedback
+                    last = entries[-1]
+                    st.markdown(f"""
+                    **Dernier feedback:**  
+                    {last.get('timestamp', '')[:10]}  
+                    *{last.get('feedback', '')[:50]}...*
+                    """)
+                    
+                    # Compteurs
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric("Total", len(entries))
+                    with col_b:
+                        urgent = len([e for e in entries if e.get('urgency') in ['Hoch', 'Kritisch']])
+                        st.metric("Urgent", urgent)
+                    
+                    # Types populaires
+                    from collections import Counter
+                    types = Counter([e.get('type', 'Sonstiges') for e in entries[-10:]])
+                    st.markdown("**Top Themen:**")
+                    for t, c in types.most_common(3):
+                        st.caption(f"{t}: {c}x")
+            
+            # Guide d'utilisation
+            st.markdown("---")
+            st.markdown("""
+            ### 📝 Guide
+            **🟢 Niedrig:** Vorschläge, Lob  
+            **🟡 Mittel:** Fragen, Verbesserungen  
+            **🟠 Hoch:** Wichtige Probleme  
+            **🔴 Kritisch:** Dringende Fehler
+            """)
     
-    with col2:
-        st.subheader("📢 Letzte Feedbacks")
+    # TAB: Statistiques détaillées
+    with tab_stats:
+        st.subheader("📈 Feedback Statistiken")
+        
         if os.path.exists(SURVEY_FILE):
             with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                 entries = json.load(f)
             
             if entries:
-                for entry in reversed(entries[-5:]):
-                    urgency_color = {
-                        "Niedrig": "🟢",
-                        "Mittel": "🟡",
-                        "Hoch": "🟠",
-                        "Kritisch": "🔴"
-                    }.get(entry['urgency'], "⚪")
-                    
-                    with st.container():
-                        st.markdown(f"""
-                        <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <strong>{entry['name']}</strong>
-                                <span>{urgency_color} {entry['urgency']}</span>
-                            </div>
-                            <p style="margin: 10px 0;">{entry['problem']}</p>
-                            <small style="color: #666;">{entry['time']}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
+                df = pd.DataFrame(entries)
+                df['date'] = pd.to_datetime(df['timestamp']).dt.date
+                
+                # Graphiques
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Feedbacks par jour
+                    daily = df.groupby('date').size().reset_index(name='count')
+                    fig = px.bar(daily, x='date', y='count', title='Feedbacks par jour')
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    # Répartition par type
+                    type_counts = df['type'].value_counts()
+                    fig = px.pie(values=type_counts.values, names=type_counts.index, title='Types de feedback')
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Tableau des derniers
+                st.subheader("📋 Derniers Feedbacks")
+                display_df = df[['timestamp', 'name', 'type', 'urgency', 'status']].sort_values('timestamp', ascending=False).head(10)
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
             else:
-                st.info("Noch kein Feedback vorhanden.")
+                st.info("Noch keine Feedbacks vorhanden")
+    
+    # TAB: Admin (protégé)
+    with tab_admin:
+        st.subheader("🔒 Administration")
+        
+        # Mot de passe simple
+        password = st.text_input("Admin Passwort", type="password")
+        
+        if password == "campus2026":  # À changer !
+            if os.path.exists(SURVEY_FILE):
+                with open(SURVEY_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f)
+                
+                if entries:
+                    # Filtres
+                    col_f1, col_f2, col_f3 = st.columns(3)
+                    with col_f1:
+                        status_filter = st.selectbox(
+                            "Status filtern",
+                            ["Alle", "Nouveau", "En cours", "Erledigt"]
+                        )
+                    with col_f2:
+                        urgency_filter = st.selectbox(
+                            "Dringlichkeit filtern",
+                            ["Alle", "Niedrig", "Mittel", "Hoch", "Kritisch"]
+                        )
+                    with col_f3:
+                        search = st.text_input("🔍 Suche", placeholder="Nom, feedback...")
+                    
+                    # Appliquer les filtres
+                    filtered = entries
+                    if status_filter != "Alle":
+                        filtered = [e for e in filtered if e.get('status') == status_filter]
+                    if urgency_filter != "Alle":
+                        filtered = [e for e in filtered if e.get('urgency') == urgency_filter]
+                    if search:
+                        filtered = [e for e in filtered if 
+                                  search.lower() in e.get('name', '').lower() or 
+                                  search.lower() in e.get('feedback', '').lower()]
+                    
+                    # Afficher
+                    for entry in reversed(filtered):
+                        with st.expander(
+                            f"[{entry.get('timestamp', '')}] {entry.get('name', 'Anonym')} - {entry.get('type', 'Feedback')} "
+                            f"[{entry.get('urgency', 'Mittel')}]"
+                        ):
+                            col1, col2, col3 = st.columns([3, 1, 1])
+                            
+                            with col1:
+                                st.markdown(f"**ID:** {entry.get('id')} | **Hash:** {entry.get('hash', 'N/A')}")
+                                st.markdown(f"**Feedback:** {entry.get('feedback', '')}")
+                                if entry.get('email'):
+                                    st.markdown(f"**Email:** {entry['email']}")
+                            
+                            with col2:
+                                new_status = st.selectbox(
+                                    "Status",
+                                    ["Nouveau", "En cours", "Erledigt"],
+                                    index=["Nouveau", "En cours", "Erledigt"].index(entry.get('status', 'Nouveau')),
+                                    key=f"status_{entry['id']}"
+                                )
+                                if new_status != entry.get('status'):
+                                    entry['status'] = new_status
+                                    with open(SURVEY_FILE, "w", encoding="utf-8") as f:
+                                        json.dump(entries, f, ensure_ascii=False, indent=2)
+                                    
+                                    # Notifier par email si répondu
+                                    if new_status == "Erledigt" and entry.get('email'):
+                                        st.info(f"📧 Notification à {entry['email']}")
+                                    st.rerun()
+                            
+                            with col3:
+                                if st.button("🗑️ Löschen", key=f"del_{entry['id']}"):
+                                    entries.remove(entry)
+                                    with open(SURVEY_FILE, "w", encoding="utf-8") as f:
+                                        json.dump(entries, f, ensure_ascii=False, indent=2)
+                                    st.rerun()
+                    
+                    # Export
+                    st.subheader("📥 Export")
+                    if st.button("CSV exportieren"):
+                        df = pd.DataFrame(entries)
+                        csv = df.to_csv(index=False)
+                        st.download_button(
+                            "📥 Download CSV",
+                            csv,
+                            f"feedbacks_{date.today().isoformat()}.csv",
+                            "text/csv"
+                        )
+                else:
+                    st.info("Keine Feedbacks vorhanden")
+        elif password:
+            st.error("❌ Falsches Passwort")
