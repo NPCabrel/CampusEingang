@@ -519,11 +519,36 @@ def save_recycle_bin(items):
         json.dump(items, f, ensure_ascii=False, indent=2)
 
 def move_to_recycle_bin(task):
+    """Déplace une tâche vers la corbeille avec nettoyage des données"""
     recycle_bin = load_recycle_bin()
-    task_with_meta = task.copy()
-    task_with_meta['deleted_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    task_with_meta['can_be_restored'] = True
-    recycle_bin.append(task_with_meta)
+    
+    # Créer une copie propre de la tâche avec seulement des types JSON serializables
+    task_clean = {}
+    
+    # Liste des clés à conserver
+    for key, value in task.items():
+        # Convertir les types non-sérialisables
+        if hasattr(value, 'isoformat'):  # Pour les dates
+            task_clean[key] = value.isoformat() if callable(getattr(value, 'isoformat')) else str(value)
+        elif isinstance(value, (pd.Timestamp, pd.Timedelta)):
+            task_clean[key] = str(value)
+        elif isinstance(value, (datetime, date)):
+            task_clean[key] = value.isoformat()
+        else:
+            # Garder les autres types (str, int, float, bool, None)
+            try:
+                # Tester si sérialisable
+                json.dumps(value)
+                task_clean[key] = value
+            except (TypeError, OverflowError):
+                # Si pas sérialisable, convertir en string
+                task_clean[key] = str(value)
+    
+    # Ajouter les métadonnées
+    task_clean['deleted_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    task_clean['can_be_restored'] = True
+    
+    recycle_bin.append(task_clean)
     save_recycle_bin(recycle_bin)
 
 def restore_from_recycle_bin(task_id):
