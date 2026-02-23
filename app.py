@@ -1212,10 +1212,12 @@ with tab4:
             ])
             st.metric(t('overdue'), overdue_count)
         
+        # Récupérer la valeur de priorité "Hoch" dans la langue actuelle
         with col_m4:
-            high_priority = len([t for t in data["tasks"] if t.get("priority") == t('priority_options')[2]])
+            priority_high = t('priority_options')[2] if len(t('priority_options')) > 2 else "Hoch"
+            high_priority = len([t for t in data["tasks"] if t.get("priority") == priority_high])
             st.metric(t('priority'), high_priority)
-        
+                
         # Tableau
         st.subheader("📋 " + t('tasks'))
         display_cols = ['title', 'category', 'priority', 'estimated_time', 'total_time_spent', 'Effizienz', 'Status']
