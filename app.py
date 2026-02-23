@@ -1044,8 +1044,11 @@ with tab1:
                     st.rerun()
             
             with col4:
-                if st.button(t('edit'), key=f"edit_{task['id']}", use_container_width=True):
-                    st.session_state[f"edit_{task['id']}"] = True
+                # Utiliser un ID simple et unique
+                if st.button(t('edit'), key=f"edit_btn_{task['id']}_{idx}", use_container_width=True):
+                edit_key = f"edit_mode_{task['id']}"
+                st.session_state[edit_key] = True
+                st.rerun()
             
             with col5:
                 if st.button("🗑️", key=f"del_{task['id']}", use_container_width=True):
