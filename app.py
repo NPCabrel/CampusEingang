@@ -1,4 +1,4 @@
-# app.py - CampusEingang avec Time Tracking (Design Moderne)
+# app.py - CampusEingang Version Finale (Multilingue + Timer + Email)
 
 import streamlit as st
 import pandas as pd
@@ -7,36 +7,689 @@ import os
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import time
+import sendgrid
+from sendgrid.helpers.mail import Mail
+import hmac
+import hashlib
 
-# Configuration de la page (DOIT ÊTRE LA PREMIÈRE COMMANDE STREAMLIT)
+# Configuration de la page
 st.set_page_config(
-    page_title="CampusEingang - Time Tracker", 
-    page_icon="⏱️", 
+    page_title="CampusEingang", 
+    page_icon="🎓", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS personnalisé pour un design moderne et attrayant
+# ==================== CONFIGURATION MULTILINGUE ====================
+LANGUAGES = {
+    'DE': 'Deutsch',
+    'FR': 'Français',
+    'EN': 'English',
+    'ES': 'Español',
+    'IT': 'Italiano'
+}
+
+# Dictionnaire de traductions
+TRANSLATIONS = {
+    'DE': {
+        # Général
+        'app_title': '🎓 CampusEingang - Studienstart-Assistent',
+        'active_timer': '⏳ Aktiver Timer',
+        'no_active_timer': '💤 Kein aktiver Timer',
+        'quick_stats': '📊 Quick Stats',
+        'total_time': '⏱️ Gesamtzeit',
+        'tasks': '✅ Aufgaben',
+        'filter': 'Filter:',
+        'all': 'Alle',
+        'active': 'Aktiv',
+        'completed': 'Erledigt',
+        'overdue': 'Überfällig',
+        
+        # Tâches
+        'tasks_header': '📋 Meine Aufgaben',
+        'category': 'Kategorie',
+        'priority': 'Priorität',
+        'estimated_time': 'Geschätzte Zeit',
+        'time_spent': 'Verbrauchte Zeit',
+        'deadline': 'Frist',
+        'notes': 'Notizen',
+        'start': '▶️ Start',
+        'stop': '⏹️ Stop',
+        'pause': '⏸️ Pause',
+        'done': '✓ Erledigt',
+        'edit': '✏️ Bearbeiten',
+        'delete': '🗑️ Löschen',
+        'restore': '♻️ Wiederherstellen',
+        'permanent_delete': '❌ Endgültig löschen',
+        
+        # Nouvelle tâche
+        'new_task': '➕ Neue Aufgabe',
+        'title': 'Titel',
+        'category_options': ['Immatrikulation', 'Organisatorisch', 'Prüfungen', 'Finanzen', 'Wohnen', 'Sonstiges'],
+        'priority_options': ['Niedrig', 'Mittel', 'Hoch'],
+        'create_task': '🚀 Aufgabe erstellen',
+        'task_created': '✅ Aufgabe erfolgreich erstellt!',
+        
+        # Timer
+        'timer_running': '▶️ Läuft:',
+        'timer_stopped': '⏹️ Gestoppt',
+        'time_recorded': '⏱️ Zeit erfasst:',
+        
+        # Feedback
+        'feedback_header': '🗣️ Feedback & Probleme',
+        'your_feedback': 'Dein Feedback',
+        'name': 'Name',
+        'email': 'E-Mail',
+        'feedback_type': 'Art des Feedbacks',
+        'feedback_types': ['💡 Verbesserungsvorschlag', '🐛 Bug melden', '❓ Frage', '👍 Lob', '👎 Kritik'],
+        'urgency': 'Dringlichkeit',
+        'urgency_options': ['Niedrig', 'Mittel', 'Hoch', 'Kritisch'],
+        'feedback_text': 'Dein Feedback',
+        'send': '📨 Senden',
+        'feedback_sent': '✅ Feedback erfolgreich gesendet!',
+        'feedback_received': 'Danke für dein Feedback!',
+        
+        # Corbeille
+        'recycle_bin': '🗑️ Papierkorb',
+        'empty_bin': 'Der Papierkorb ist leer',
+        'deleted_tasks': 'Gelöschte Aufgaben',
+        'deleted_at': 'Gelöscht am',
+        'days_ago': 'Tagen',
+        'today': 'Heute',
+        'yesterday': 'Gestern',
+        
+        # Analysen
+        'analysis': '📊 Analysen',
+        'by_category': 'Aufgaben nach Kategorie',
+        'progress': 'Fortschritt',
+        'stats': 'Statistiken',
+        'export': '📥 Exportieren',
+        
+        # Zeit
+        'minutes': 'Minuten',
+        'hours': 'Stunden',
+        'days': 'Tage',
+        'min': 'min',
+        'h': 'h',
+    },
+    'FR': {
+        'app_title': '🎓 CampusEingang - Assistant de Rentrée',
+        'active_timer': '⏳ Minuteur actif',
+        'no_active_timer': '💤 Aucun minuteur actif',
+        'quick_stats': '📊 Stats rapides',
+        'total_time': '⏱️ Temps total',
+        'tasks': '✅ Tâches',
+        'filter': 'Filtre:',
+        'all': 'Tous',
+        'active': 'Actifs',
+        'completed': 'Terminés',
+        'overdue': 'En retard',
+        'tasks_header': '📋 Mes tâches',
+        'category': 'Catégorie',
+        'priority': 'Priorité',
+        'estimated_time': 'Temps estimé',
+        'time_spent': 'Temps passé',
+        'deadline': 'Échéance',
+        'notes': 'Notes',
+        'start': '▶️ Démarrer',
+        'stop': '⏹️ Arrêter',
+        'pause': '⏸️ Pause',
+        'done': '✓ Terminé',
+        'edit': '✏️ Modifier',
+        'delete': '🗑️ Supprimer',
+        'restore': '♻️ Restaurer',
+        'permanent_delete': '❌ Supprimer définitivement',
+        'new_task': '➕ Nouvelle tâche',
+        'title': 'Titre',
+        'category_options': ['Inscription', 'Organisation', 'Examens', 'Finances', 'Logement', 'Autres'],
+        'priority_options': ['Basse', 'Moyenne', 'Haute'],
+        'create_task': '🚀 Créer la tâche',
+        'task_created': '✅ Tâche créée avec succès!',
+        'timer_running': '▶️ En cours:',
+        'timer_stopped': '⏹️ Arrêté',
+        'time_recorded': '⏱️ Temps enregistré:',
+        'feedback_header': '🗣️ Feedback & Problèmes',
+        'your_feedback': 'Votre feedback',
+        'name': 'Nom',
+        'email': 'E-mail',
+        'feedback_type': 'Type de feedback',
+        'feedback_types': ['💡 Suggestion', '🐛 Bug', '❓ Question', '👍 Éloge', '👎 Critique'],
+        'urgency': 'Urgence',
+        'urgency_options': ['Basse', 'Moyenne', 'Haute', 'Critique'],
+        'feedback_text': 'Votre feedback',
+        'send': '📨 Envoyer',
+        'feedback_sent': '✅ Feedback envoyé avec succès!',
+        'feedback_received': 'Merci pour votre feedback!',
+        'recycle_bin': '🗑️ Corbeille',
+        'empty_bin': 'La corbeille est vide',
+        'deleted_tasks': 'Tâches supprimées',
+        'deleted_at': 'Supprimé le',
+        'days_ago': 'jours',
+        'today': 'Aujourd\'hui',
+        'yesterday': 'Hier',
+        'analysis': '📊 Analyses',
+        'by_category': 'Tâches par catégorie',
+        'progress': 'Progression',
+        'stats': 'Statistiques',
+        'export': '📥 Exporter',
+        'minutes': 'Minutes',
+        'hours': 'Heures',
+        'days': 'Jours',
+        'min': 'min',
+        'h': 'h',
+    },
+    'EN': {
+        'app_title': '🎓 CampusEingang - Study Start Assistant',
+        'active_timer': '⏳ Active Timer',
+        'no_active_timer': '💤 No active timer',
+        'quick_stats': '📊 Quick Stats',
+        'total_time': '⏱️ Total Time',
+        'tasks': '✅ Tasks',
+        'filter': 'Filter:',
+        'all': 'All',
+        'active': 'Active',
+        'completed': 'Completed',
+        'overdue': 'Overdue',
+        'tasks_header': '📋 My Tasks',
+        'category': 'Category',
+        'priority': 'Priority',
+        'estimated_time': 'Estimated Time',
+        'time_spent': 'Time Spent',
+        'deadline': 'Deadline',
+        'notes': 'Notes',
+        'start': '▶️ Start',
+        'stop': '⏹️ Stop',
+        'pause': '⏸️ Pause',
+        'done': '✓ Done',
+        'edit': '✏️ Edit',
+        'delete': '🗑️ Delete',
+        'restore': '♻️ Restore',
+        'permanent_delete': '❌ Permanently Delete',
+        'new_task': '➕ New Task',
+        'title': 'Title',
+        'category_options': ['Enrollment', 'Organizational', 'Exams', 'Finances', 'Housing', 'Others'],
+        'priority_options': ['Low', 'Medium', 'High'],
+        'create_task': '🚀 Create Task',
+        'task_created': '✅ Task created successfully!',
+        'timer_running': '▶️ Running:',
+        'timer_stopped': '⏹️ Stopped',
+        'time_recorded': '⏱️ Time recorded:',
+        'feedback_header': '🗣️ Feedback & Issues',
+        'your_feedback': 'Your Feedback',
+        'name': 'Name',
+        'email': 'Email',
+        'feedback_type': 'Feedback Type',
+        'feedback_types': ['💡 Suggestion', '🐛 Bug Report', '❓ Question', '👍 Praise', '👎 Criticism'],
+        'urgency': 'Urgency',
+        'urgency_options': ['Low', 'Medium', 'High', 'Critical'],
+        'feedback_text': 'Your Feedback',
+        'send': '📨 Send',
+        'feedback_sent': '✅ Feedback sent successfully!',
+        'feedback_received': 'Thank you for your feedback!',
+        'recycle_bin': '🗑️ Recycle Bin',
+        'empty_bin': 'The recycle bin is empty',
+        'deleted_tasks': 'Deleted Tasks',
+        'deleted_at': 'Deleted on',
+        'days_ago': 'days ago',
+        'today': 'Today',
+        'yesterday': 'Yesterday',
+        'analysis': '📊 Analysis',
+        'by_category': 'Tasks by Category',
+        'progress': 'Progress',
+        'stats': 'Statistics',
+        'export': '📥 Export',
+        'minutes': 'Minutes',
+        'hours': 'Hours',
+        'days': 'Days',
+        'min': 'min',
+        'h': 'h',
+    },
+    'ES': {
+        'app_title': '🎓 CampusEingang - Asistente de Inicio',
+        'active_timer': '⏳ Temporizador activo',
+        'no_active_timer': '💤 Sin temporizador activo',
+        'quick_stats': '📊 Estadísticas rápidas',
+        'total_time': '⏱️ Tiempo total',
+        'tasks': '✅ Tareas',
+        'filter': 'Filtro:',
+        'all': 'Todos',
+        'active': 'Activos',
+        'completed': 'Completados',
+        'overdue': 'Vencidos',
+        'tasks_header': '📋 Mis tareas',
+        'category': 'Categoría',
+        'priority': 'Prioridad',
+        'estimated_time': 'Tiempo estimado',
+        'time_spent': 'Tiempo empleado',
+        'deadline': 'Fecha límite',
+        'notes': 'Notas',
+        'start': '▶️ Iniciar',
+        'stop': '⏹️ Parar',
+        'pause': '⏸️ Pausa',
+        'done': '✓ Hecho',
+        'edit': '✏️ Editar',
+        'delete': '🗑️ Eliminar',
+        'restore': '♻️ Restaurar',
+        'permanent_delete': '❌ Eliminar permanentemente',
+        'new_task': '➕ Nueva tarea',
+        'title': 'Título',
+        'category_options': ['Matrícula', 'Organización', 'Exámenes', 'Finanzas', 'Vivienda', 'Otros'],
+        'priority_options': ['Baja', 'Media', 'Alta'],
+        'create_task': '🚀 Crear tarea',
+        'task_created': '✅ ¡Tarea creada con éxito!',
+        'timer_running': '▶️ En curso:',
+        'timer_stopped': '⏹️ Detenido',
+        'time_recorded': '⏱️ Tiempo registrado:',
+        'feedback_header': '🗣️ Feedback y Problemas',
+        'your_feedback': 'Tu feedback',
+        'name': 'Nombre',
+        'email': 'Email',
+        'feedback_type': 'Tipo de feedback',
+        'feedback_types': ['💡 Sugerencia', '🐛 Reportar error', '❓ Pregunta', '👍 Elogio', '👎 Crítica'],
+        'urgency': 'Urgencia',
+        'urgency_options': ['Baja', 'Media', 'Alta', 'Crítica'],
+        'feedback_text': 'Tu feedback',
+        'send': '📨 Enviar',
+        'feedback_sent': '✅ ¡Feedback enviado con éxito!',
+        'feedback_received': '¡Gracias por tu feedback!',
+        'recycle_bin': '🗑️ Papelera',
+        'empty_bin': 'La papelera está vacía',
+        'deleted_tasks': 'Tareas eliminadas',
+        'deleted_at': 'Eliminado el',
+        'days_ago': 'días',
+        'today': 'Hoy',
+        'yesterday': 'Ayer',
+        'analysis': '📊 Análisis',
+        'by_category': 'Tareas por categoría',
+        'progress': 'Progreso',
+        'stats': 'Estadísticas',
+        'export': '📥 Exportar',
+        'minutes': 'Minutos',
+        'hours': 'Horas',
+        'days': 'Días',
+        'min': 'min',
+        'h': 'h',
+    },
+    'IT': {
+        'app_title': '🎓 CampusEingang - Assistente di Avvio',
+        'active_timer': '⏳ Timer attivo',
+        'no_active_timer': '💤 Nessun timer attivo',
+        'quick_stats': '📊 Statistiche rapide',
+        'total_time': '⏱️ Tempo totale',
+        'tasks': '✅ Compiti',
+        'filter': 'Filtro:',
+        'all': 'Tutti',
+        'active': 'Attivi',
+        'completed': 'Completati',
+        'overdue': 'In ritardo',
+        'tasks_header': '📋 I miei compiti',
+        'category': 'Categoria',
+        'priority': 'Priorità',
+        'estimated_time': 'Tempo stimato',
+        'time_spent': 'Tempo impiegato',
+        'deadline': 'Scadenza',
+        'notes': 'Note',
+        'start': '▶️ Avvia',
+        'stop': '⏹️ Ferma',
+        'pause': '⏸️ Pausa',
+        'done': '✓ Fatto',
+        'edit': '✏️ Modifica',
+        'delete': '🗑️ Elimina',
+        'restore': '♻️ Ripristina',
+        'permanent_delete': '❌ Elimina definitivamente',
+        'new_task': '➕ Nuovo compito',
+        'title': 'Titolo',
+        'category_options': ['Immatricolazione', 'Organizzativo', 'Esami', 'Finanze', 'Alloggio', 'Altri'],
+        'priority_options': ['Bassa', 'Media', 'Alta'],
+        'create_task': '🚀 Crea compito',
+        'task_created': '✅ Compito creato con successo!',
+        'timer_running': '▶️ In corso:',
+        'timer_stopped': '⏹️ Fermato',
+        'time_recorded': '⏱️ Tempo registrato:',
+        'feedback_header': '🗣️ Feedback e Problemi',
+        'your_feedback': 'Il tuo feedback',
+        'name': 'Nome',
+        'email': 'Email',
+        'feedback_type': 'Tipo di feedback',
+        'feedback_types': ['💡 Suggerimento', '🐛 Segnala bug', '❓ Domanda', '👍 Lode', '👎 Critica'],
+        'urgency': 'Urgenza',
+        'urgency_options': ['Bassa', 'Media', 'Alta', 'Critica'],
+        'feedback_text': 'Il tuo feedback',
+        'send': '📨 Invia',
+        'feedback_sent': '✅ Feedback inviato con successo!',
+        'feedback_received': 'Grazie per il tuo feedback!',
+        'recycle_bin': '🗑️ Cestino',
+        'empty_bin': 'Il cestino è vuoto',
+        'deleted_tasks': 'Compiti eliminati',
+        'deleted_at': 'Eliminato il',
+        'days_ago': 'giorni fa',
+        'today': 'Oggi',
+        'yesterday': 'Ieri',
+        'analysis': '📊 Analisi',
+        'by_category': 'Compiti per categoria',
+        'progress': 'Progresso',
+        'stats': 'Statistiche',
+        'export': '📥 Esporta',
+        'minutes': 'Minuti',
+        'hours': 'Ore',
+        'days': 'Giorni',
+        'min': 'min',
+        'h': 'h',
+    }
+}
+
+# Fonction pour obtenir la traduction
+def t(key):
+    """Retourne la traduction pour la clé donnée dans la langue sélectionnée"""
+    lang = st.session_state.get('language', 'DE')
+    return TRANSLATIONS[lang].get(key, key)
+
+# Sélecteur de langue dans la sidebar
+with st.sidebar:
+    st.markdown("### 🌐 Sprache / Langue / Language")
+    selected_lang = st.selectbox(
+        "",
+        options=list(LANGUAGES.keys()),
+        format_func=lambda x: LANGUAGES[x],
+        key='language'
+    )
+
+# ==================== CONFIGURATION EMAIL ====================
+# Configuration SendGrid (à mettre dans les secrets Streamlit)
+SENDGRID_API_KEY = st.secrets.get("SENDGRID_API_KEY", "TA_CLE_API_ICI")
+FROM_EMAIL = "campus@eingang.de"  # À vérifier dans SendGrid
+TO_EMAIL = "naguepascal5@gmail.com"  # TON EMAIL POUR RECEVOIR LES FEEDBACKS
+
+def send_feedback_email(name, email, feedback_type, feedback, urgency, lang='DE'):
+    """
+    Envoie un email avec les détails du feedback à naguepascal5@gmail.com
+    """
+    try:
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        # Traductions pour l'email selon la langue de l'utilisateur
+        urgency_labels = {
+            'DE': ['Niedrig', 'Mittel', 'Hoch', 'Kritisch'],
+            'FR': ['Basse', 'Moyenne', 'Haute', 'Critique'],
+            'EN': ['Low', 'Medium', 'High', 'Critical'],
+            'ES': ['Baja', 'Media', 'Alta', 'Crítica'],
+            'IT': ['Bassa', 'Media', 'Alta', 'Critica']
+        }
+        
+        type_labels = {
+            'DE': ['Verbesserungsvorschlag', 'Bug melden', 'Frage', 'Lob', 'Kritik'],
+            'FR': ['Suggestion', 'Bug', 'Question', 'Éloge', 'Critique'],
+            'EN': ['Suggestion', 'Bug Report', 'Question', 'Praise', 'Criticism'],
+            'ES': ['Sugerencia', 'Reportar error', 'Pregunta', 'Elogio', 'Crítica'],
+            'IT': ['Suggerimento', 'Segnala bug', 'Domanda', 'Lode', 'Critica']
+        }
+        
+        # Construction de l'email HTML
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                          color: white; padding: 25px; border-radius: 15px 15px 0 0; }}
+                .content {{ background: #f8f9fa; padding: 25px; border-radius: 0 0 15px 15px; }}
+                .field {{ margin: 20px 0; }}
+                .label {{ font-weight: bold; color: #667eea; font-size: 1.1em; }}
+                .value {{ background: white; padding: 12px; border-radius: 8px; margin-top: 5px;
+                         border-left: 4px solid #667eea; }}
+                .urgency {{ display: inline-block; padding: 5px 15px; border-radius: 20px; 
+                          font-weight: bold; }}
+                .urgency-Hoch, .urgency-Haute, .urgency-High, .urgency-Alta {{ 
+                    background: #ff6b6b; color: white; }}
+                .urgency-Mittel, .urgency-Moyenne, .urgency-Medium, .urgency-Media {{ 
+                    background: #feca57; color: black; }}
+                .urgency-Niedrig, .urgency-Basse, .urgency-Low, .urgency-Baja {{ 
+                    background: #48dbfb; color: black; }}
+                .urgency-Kritisch, .urgency-Critique, .urgency-Critical, .urgency-Crítica {{ 
+                    background: #ff0000; color: white; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #999; }}
+                .badge {{ background: #667eea; color: white; padding: 3px 10px; 
+                         border-radius: 15px; font-size: 0.8em; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1 style="margin:0;">📬 Neues Feedback - CampusEingang</h1>
+                    <p style="margin:5px 0 0; opacity:0.9;">Eingegangen am {datetime.now().strftime('%d.%m.%Y um %H:%M')}</p>
+                </div>
+                <div class="content">
+                    <div style="text-align: right; margin-bottom: 15px;">
+                        <span class="badge">Sprache: {LANGUAGES[lang]}</span>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">👤 Von:</div>
+                        <div class="value"><strong>{name}</strong></div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">📧 Kontakt:</div>
+                        <div class="value">{email if email else 'Nicht angegeben'}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">📝 Art des Feedbacks:</div>
+                        <div class="value">{feedback_type}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">⚠️ Dringlichkeit:</div>
+                        <div class="value">
+                            <span class="urgency urgency-{urgency}">{urgency}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">💬 Feedback:</div>
+                        <div class="value" style="white-space: pre-line;">{feedback}</div>
+                    </div>
+                    
+                    <div class="field">
+                        <div class="label">🌐 Sprache:</div>
+                        <div class="value">{LANGUAGES[lang]}</div>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>Dieses Feedback wurde über die CampusEingang-App gesendet.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Créer le message pour toi
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=TO_EMAIL,  # Ton email : naguepascal5@gmail.com
+            subject=f'📬 CampusEingang - Neues Feedback von {name}',
+            html_content=html_content
+        )
+        
+        # Envoyer
+        response = sg.send(message)
+        
+        # Optionnel: Envoyer une confirmation à l'utilisateur si email fourni
+        if email:
+            user_lang = lang
+            confirm_subject = {
+                'DE': '✅ Dein Feedback wurde empfangen',
+                'FR': '✅ Votre feedback a été reçu',
+                'EN': '✅ Your feedback has been received',
+                'ES': '✅ Tu feedback ha sido recibido',
+                'IT': '✅ Il tuo feedback è stato ricevuto'
+            }.get(user_lang, '✅ Feedback received')
+            
+            confirm_message = {
+                'DE': f'Hallo {name},\n\ndanke für dein Feedback! Wir werden es schnellstmöglich bearbeiten.\n\nDein Feedback: {feedback}\n\nVielen Dank!\nDein CampusEingang-Team',
+                'FR': f'Bonjour {name},\n\nmerci pour votre feedback ! Nous allons le traiter rapidement.\n\nVotre feedback : {feedback}\n\nMerci beaucoup !\nL\'équipe CampusEingang',
+                'EN': f'Hello {name},\n\nthank you for your feedback! We will process it as soon as possible.\n\nYour feedback: {feedback}\n\nThank you very much!\nYour CampusEingang Team',
+                'ES': f'Hola {name},\n\n¡gracias por tu feedback! Lo procesaremos lo antes posible.\n\nTu feedback: {feedback}\n\n¡Muchas gracias!\nEl equipo de CampusEingang',
+                'IT': f'Ciao {name},\n\ngrazie per il tuo feedback! Lo elaboreremo il prima possibile.\n\nIl tuo feedback: {feedback}\n\nGrazie mille!\nIl team di CampusEingang'
+            }.get(user_lang, f'Thank you for your feedback, {name}!')
+            
+            confirmation = Mail(
+                from_email=FROM_EMAIL,
+                to_emails=email,
+                subject=confirm_subject,
+                plain_text_content=confirm_message
+            )
+            sg.send(confirmation)
+        
+        return True, "Email envoyé avec succès"
+    
+    except Exception as e:
+        return False, str(e)
+
+# ==================== CONFIGURATION DES FICHIERS ====================
+DATA_DIR = "campus_data"
+os.makedirs(DATA_DIR, exist_ok=True)
+DATA_FILE = os.path.join(DATA_DIR, "data.json")
+TIME_TRACKING_FILE = os.path.join(DATA_DIR, "time_tracking.json")
+SURVEY_FILE = os.path.join(DATA_DIR, "survey.json")
+RECYCLE_BIN_FILE = os.path.join(DATA_DIR, "recycle_bin.json")
+
+# Données par défaut
+default_data = {
+    "tasks": [
+        {
+            "id": 1, 
+            "title": "Immatrikulation abschließen", 
+            "category": "Immatrikulation",
+            "deadline": "2026-10-01", 
+            "link": "", 
+            "done": False,
+            "notes": "Unterlagen mitbringen",
+            "estimated_time": 120,
+            "total_time_spent": 0,
+            "priority": "Hoch"
+        },
+        {
+            "id": 2, 
+            "title": "Chipkarte abholen", 
+            "category": "Organisatorisch",
+            "deadline": (date.today() + timedelta(days=2)).strftime("%Y-%m-%d"), 
+            "link": "", 
+            "done": False, 
+            "notes": "",
+            "estimated_time": 30,
+            "total_time_spent": 0,
+            "priority": "Mittel"
+        }
+    ],
+    "next_id": 3
+}
+
+# ==================== FONCTIONS DE GESTION DES DONNÉES ====================
+def ensure_files():
+    if not os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_data, f, ensure_ascii=False, indent=2)
+    
+    if not os.path.exists(TIME_TRACKING_FILE):
+        with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+    
+    if not os.path.exists(SURVEY_FILE):
+        with open(SURVEY_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+    
+    if not os.path.exists(RECYCLE_BIN_FILE):
+        with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+
+def load_data():
+    ensure_files()
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_data(data):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_time_entries():
+    ensure_files()
+    with open(TIME_TRACKING_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_time_entries(entries):
+    with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+
+# ==================== FONCTIONS POUR LA CORBEILLE ====================
+def load_recycle_bin():
+    ensure_files()
+    if os.path.exists(RECYCLE_BIN_FILE):
+        with open(RECYCLE_BIN_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_recycle_bin(items):
+    with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+def move_to_recycle_bin(task):
+    recycle_bin = load_recycle_bin()
+    task_with_meta = task.copy()
+    task_with_meta['deleted_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    task_with_meta['can_be_restored'] = True
+    recycle_bin.append(task_with_meta)
+    save_recycle_bin(recycle_bin)
+
+def restore_from_recycle_bin(task_id):
+    recycle_bin = load_recycle_bin()
+    task_to_restore = None
+    
+    for task in recycle_bin:
+        if task['id'] == task_id:
+            task_to_restore = task
+            recycle_bin.remove(task)
+            break
+    
+    if task_to_restore:
+        task_to_restore.pop('deleted_at', None)
+        task_to_restore.pop('can_be_restored', None)
+        save_recycle_bin(recycle_bin)
+        return task_to_restore
+    
+    return None
+
+def permanently_delete(task_id):
+    recycle_bin = load_recycle_bin()
+    recycle_bin = [t for t in recycle_bin if t['id'] != task_id]
+    save_recycle_bin(recycle_bin)
+
+# ==================== SESSION STATE POUR LE TIMER ====================
+if 'active_timer' not in st.session_state:
+    st.session_state.active_timer = False
+if 'timer_start' not in st.session_state:
+    st.session_state.timer_start = None
+if 'timer_task_id' not in st.session_state:
+    st.session_state.timer_task_id = None
+if 'timer_running' not in st.session_state:
+    st.session_state.timer_running = False
+if 'current_time' not in st.session_state:
+    st.session_state.current_time = 0
+
+# ==================== CSS PERSONNALISÉ ====================
 st.markdown("""
 <style>
-    /* Styles généraux */
     .main-header {
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: 700;
         background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0;
-        padding-bottom: 0;
     }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        margin-top: 0;
-    }
-    
-    /* Cartes pour les tâches */
     .task-card {
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 15px;
@@ -49,8 +702,6 @@ st.markdown("""
         transform: translateY(-5px);
         box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
     }
-    
-    /* Badges pour les statuts */
     .badge-overdue {
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         color: white;
@@ -75,28 +726,6 @@ st.markdown("""
         font-size: 0.8rem;
         font-weight: 600;
     }
-    
-    /* Métriques améliorées */
-    .metric-card {
-        background: white;
-        border-radius: 10px;
-        padding: 20px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .metric-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #667eea;
-    }
-    .metric-label {
-        font-size: 1rem;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    /* Timer actif */
     .active-timer {
         background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
         border-radius: 15px;
@@ -104,14 +733,19 @@ st.markdown("""
         margin: 20px 0;
         border: 2px solid #667eea;
         animation: pulse 2s infinite;
+        text-align: center;
     }
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
         70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
         100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
     }
-    
-    /* Boutons personnalisés */
+    .timer-display {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #667eea;
+        margin: 10px 0;
+    }
     .stButton > button {
         border-radius: 25px;
         font-weight: 600;
@@ -121,115 +755,53 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     }
+    div[data-testid="stMetricValue"] {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #667eea;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Configuration des fichiers de données
-DATA_DIR = "campus_data"
-os.makedirs(DATA_DIR, exist_ok=True)
-DATA_FILE = os.path.join(DATA_DIR, "data.json")
-TIME_TRACKING_FILE = os.path.join(DATA_DIR, "time_tracking.json")
-SURVEY_FILE = os.path.join(DATA_DIR, "survey.json")
+# ==================== HEADER PRINCIPAL ====================
+st.markdown(f'<h1 class="main-header">{t("app_title")}</h1>', unsafe_allow_html=True)
 
-# Données par défaut avec Time Tracking
-default_data = {
-    "tasks": [
-        {
-            "id": 1, 
-            "title": "Immatrikulation abschließen", 
-            "category": "Immatrikulation",
-            "deadline": "2026-10-01", 
-            "link": "https://uni.example/immatrikulation", 
-            "done": False,
-            "notes": "Unterlagen mitbringen",
-            "estimated_time": 120,  # temps estimé en minutes
-            "total_time_spent": 0,   # temps total déjà passé
-            "priority": "Hoch"        # Hoch, Mittel, Niedrig
-        },
-        {
-            "id": 2, 
-            "title": "Chipkarte abholen", 
-            "category": "Organisatorisch",
-            "deadline": (date.today() + timedelta(days=2)).strftime("%Y-%m-%d"), 
-            "link": "", 
-            "done": False, 
-            "notes": "",
-            "estimated_time": 30,
-            "total_time_spent": 0,
-            "priority": "Mittel"
-        }
-    ],
-    "next_id": 3
-}
-
-# Fonctions de gestion des données
-def ensure_files():
-    if not os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(default_data, f, ensure_ascii=False, indent=2)
-    
-    if not os.path.exists(TIME_TRACKING_FILE):
-        with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
-    
-    if not os.path.exists(SURVEY_FILE):
-        with open(SURVEY_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
-
-def load_data():
-    ensure_files()
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-def load_time_entries():
-    ensure_files()
-    with open(TIME_TRACKING_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_time_entries(entries):
-    with open(TIME_TRACKING_FILE, "w", encoding="utf-8") as f:
-        json.dump(entries, f, ensure_ascii=False, indent=2)
-
-# Initialisation des sessions state pour le timer
-if 'active_timer' not in st.session_state:
-    st.session_state.active_timer = None
-if 'timer_start' not in st.session_state:
-    st.session_state.timer_start = None
-if 'timer_task_id' not in st.session_state:
-    st.session_state.timer_task_id = None
-
-# En-tête principal avec animation
-st.markdown('<h1 class="main-header">⏱️ CampusEingang Time Tracker</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Gestion intelligente de ton temps universitaire</p>', unsafe_allow_html=True)
-
-# Sidebar avec stats et timer actif
+# ==================== SIDEBAR AVEC TIMER AMÉLIORÉ ====================
 with st.sidebar:
-    st.markdown("### ⏳ Timer Actif")
+    st.markdown(f"### {t('active_timer')}")
     
-    if st.session_state.active_timer:
+    # Timer amélioré avec mise à jour automatique
+    if st.session_state.active_timer and st.session_state.timer_running:
         data = load_data()
         task = next((t for t in data["tasks"] if t["id"] == st.session_state.timer_task_id), None)
+        
         if task:
+            # Calculer le temps écoulé
+            elapsed = datetime.now() - st.session_state.timer_start
+            hours = int(elapsed.total_seconds() // 3600)
+            minutes = int((elapsed.total_seconds() % 3600) // 60)
+            seconds = int(elapsed.total_seconds() % 60)
+            
+            # Mettre à jour le temps actuel
+            st.session_state.current_time = elapsed.total_seconds()
+            
+            # Afficher le timer
             st.markdown(f"""
             <div class="active-timer">
-                <h4 style="margin:0; color:#333;">▶️ En cours : {task['title']}</h4>
-                <p style="font-size:2rem; font-weight:bold; margin:10px 0; color:#667eea;" id="timer">00:00:00</p>
-                <p style="margin:0; color:#666;">Démarré à {st.session_state.timer_start.strftime('%H:%M:%S')}</p>
+                <h4 style="margin:0;">▶️ {task['title'][:30]}{'...' if len(task['title']) > 30 else ''}</h4>
+                <div class="timer-display">{hours:02d}:{minutes:02d}:{seconds:02d}</div>
+                <p style="margin:0;">Start: {st.session_state.timer_start.strftime('%H:%M:%S')}</p>
             </div>
             """, unsafe_allow_html=True)
             
+            # Boutons de contrôle
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("⏸️ Pause", use_container_width=True):
-                    # Arrêter le timer
+                if st.button(t('stop'), use_container_width=True, type="primary"):
+                    # Arrêter le timer et sauvegarder
                     elapsed = datetime.now() - st.session_state.timer_start
                     minutes = elapsed.total_seconds() / 60
                     
-                    # Sauvegarder l'entrée
                     entries = load_time_entries()
                     entry = {
                         "task_id": task["id"],
@@ -242,7 +814,6 @@ with st.sidebar:
                     entries.append(entry)
                     save_time_entries(entries)
                     
-                    # Mettre à jour le total de la tâche
                     data = load_data()
                     for t in data["tasks"]:
                         if t["id"] == task["id"]:
@@ -251,20 +822,45 @@ with st.sidebar:
                     save_data(data)
                     
                     st.session_state.active_timer = False
+                    st.session_state.timer_running = False
+                    st.session_state.current_time = 0
                     st.rerun()
             
             with col2:
-                if st.button("⏹️ Stop", use_container_width=True):
-                    st.session_state.active_timer = False
+                if st.button(t('pause'), use_container_width=True):
+                    st.session_state.timer_running = False
                     st.rerun()
+            
+            # Auto-refresh toutes les secondes
+            time.sleep(0.1)
+            st.rerun()
+    
+    elif st.session_state.active_timer and not st.session_state.timer_running:
+        # Timer en pause
+        st.markdown("""
+        <div style="background: #f0f0f0; border-radius: 15px; padding: 20px; text-align: center;">
+            <h4>⏸️ Timer pausiert</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("▶️ Fortsetzen", use_container_width=True):
+            st.session_state.timer_running = True
+            st.rerun()
+        
+        if st.button("⏹️ Beenden", use_container_width=True):
+            st.session_state.active_timer = False
+            st.session_state.timer_running = False
+            st.session_state.current_time = 0
+            st.rerun()
+    
     else:
-        st.info("💤 Kein aktiver Timer")
-        st.markdown("*Starte einen Timer von einer Aufgabe aus*")
+        st.info(t('no_active_timer'))
+        st.markdown("*" + t('start') + " " + t('tasks') + "*")
     
     st.markdown("---")
     
     # Statistiques rapides
-    st.markdown("### 📊 Quick Stats")
+    st.markdown(f"### {t('quick_stats')}")
     data = load_data()
     time_entries = load_time_entries()
     
@@ -274,50 +870,32 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Zeit total", f"{int(total_time)} min", f"{int(total_time/60)}h")
+        st.metric(t('total_time'), f"{int(total_time)} {t('min')}", f"{int(total_time/60)}{t('h')}")
     with col2:
-        st.metric("Aufgaben", f"{tasks_done}/{tasks_total}", f"{int(tasks_done/tasks_total*100) if tasks_total>0 else 0}%")
-    
-    st.markdown("---")
-    st.markdown("### 🎯 Prioritäten")
-    
-    # Graphique des priorités
-    if data["tasks"]:
-        priorities = {"Hoch": 0, "Mittel": 0, "Niedrig": 0}
-        for task in data["tasks"]:
-            p = task.get("priority", "Mittel")
-            priorities[p] = priorities.get(p, 0) + 1
-        
-        priority_df = pd.DataFrame({
-            'Priorität': list(priorities.keys()),
-            'Anzahl': list(priorities.values())
-        })
-        
-        fig = px.pie(priority_df, values='Anzahl', names='Priorität', 
-                     color_discrete_sequence=['#ff6b6b', '#feca57', '#48dbfb'])
-        fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), height=200)
-        st.plotly_chart(fig, use_container_width=True)
+        st.metric(t('tasks'), f"{tasks_done}/{tasks_total}")
 
-# Onglets principaux
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📋 Aufgaben & Timer", 
-    "➕ Neue Aufgabe", 
-    "⏱️ Zeiterfassung", 
-    "📊 Analysen",
-    "🗣️ Feedback"
+# ==================== ONGLETS ====================
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    t('tasks_header'), 
+    t('new_task'), 
+    t('time_recorded').replace('⏱️ ', '⏱️ '), 
+    t('analysis'),
+    t('feedback_header'),
+    t('recycle_bin')
 ])
 
-# TAB 1: Aufgaben & Timer
+# ==================== TAB 1: AUFGABEN ====================
 with tab1:
-    st.header("📋 Meine Aufgaben mit Zeit-Tracking")
+    st.header(t('tasks_header'))
     
     data = load_data()
+    today = date.today()
     
     if data["tasks"]:
-        # Créer un DataFrame pour les tâches
+        # Créer DataFrame
         df = pd.DataFrame(data["tasks"])
         
-        # Ajouter colonne overdue
+        # Calculer overdue
         def parse_deadline(s):
             try:
                 return datetime.strptime(s, "%Y-%m-%d").date() if s else None
@@ -325,180 +903,182 @@ with tab1:
                 return None
         
         df["deadline_date"] = df["deadline"].apply(parse_deadline)
-        today = date.today()
         df["overdue"] = df.apply(lambda r: (not r.get("done", False)) and 
                                  (r["deadline_date"] is not None) and 
                                  (r["deadline_date"] < today), axis=1)
         
-        # Filtrer les tâches
-        filter_option = st.radio(
-            "Filter:",
-            ["Alle", "Aktiv", "Erledigt", "Überfällig"],
-            horizontal=True
-        )
+        # Filtre
+        filter_options = [t('all'), t('active'), t('completed'), t('overdue')]
+        filter_option = st.radio(t('filter'), filter_options, horizontal=True)
         
-        if filter_option == "Aktiv":
+        if filter_option == t('active'):
             df = df[~df["done"]]
-        elif filter_option == "Erledigt":
+        elif filter_option == t('completed'):
             df = df[df["done"]]
-        elif filter_option == "Überfällig":
+        elif filter_option == t('overdue'):
             df = df[df["overdue"]]
         
-        # Afficher les tâches dans des cartes
+        # Afficher les tâches
         for idx, task in df.iterrows():
-            # Déterminer le badge de deadline
+            # Badge
             if task.get("overdue"):
-                badge_class = "badge-overdue"
-                badge_text = "⚠️ Überfällig"
+                badge = f'<span class="badge-overdue">⚠️ {t("overdue")}</span>'
             elif task["deadline_date"] and task["deadline_date"] <= today:
-                badge_class = "badge-today"
-                badge_text = "🔔 Heute"
-            elif task["deadline_date"] and task["deadline_date"] <= today + timedelta(days=7):
-                badge_class = "badge-upcoming"
-                badge_text = f"📅 In {(task['deadline_date'] - today).days} Tagen"
+                badge = f'<span class="badge-today">🔔 {t("today")}</span>'
+            elif task["deadline_date"]:
+                days_left = (task["deadline_date"] - today).days
+                badge = f'<span class="badge-upcoming">📅 {days_left} {t("days")}</span>'
             else:
-                badge_class = "badge-upcoming"
-                badge_text = f"📅 {task['deadline']}"
+                badge = f'<span class="badge-upcoming">📅 {task["deadline"]}</span>'
             
-            # Couleur selon priorité
-            priority_colors = {
-                "Hoch": "#ff6b6b",
-                "Mittel": "#feca57",
-                "Niedrig": "#48dbfb"
-            }
-            priority_color = priority_colors.get(task.get("priority", "Mittel"), "#feca57")
+            # Couleur priorité
+            priority = task.get('priority', 'Mittel')
+            priority_color = {
+                t('priority_options')[2]: "#ff6b6b",  # Hoch/Haute/High
+                t('priority_options')[1]: "#feca57",  # Mittel/Moyenne/Medium
+                t('priority_options')[0]: "#48dbfb"   # Niedrig/Basse/Low
+            }.get(priority, "#feca57")
             
-            # Carte de tâche
-            with st.container():
-                st.markdown(f"""
-                <div class="task-card" style="border-left: 5px solid {priority_color};">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin:0;">{task['title']}</h3>
-                        <span class="{badge_class}">{badge_text}</span>
-                    </div>
-                    <p style="color: #666; margin: 5px 0;">
-                        📂 {task['category']} | 
-                        🎯 Priorität: <span style="color:{priority_color}; font-weight:600;">{task.get('priority', 'Mittel')}</span>
-                    </p>
-                """, unsafe_allow_html=True)
-                
-                col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
-                
-                with col1:
-                    st.markdown(f"**Zeit:** ⏱️ {task.get('total_time_spent', 0):.1f} min / {task.get('estimated_time', 60)} min estimé")
-                    progress = min(task.get('total_time_spent', 0) / task.get('estimated_time', 60), 1.0)
-                    st.progress(progress)
-                
-                with col2:
-                    if not task.get("done", False):
-                        if st.button("▶️ Start", key=f"start_{task['id']}", use_container_width=True):
-                            if st.session_state.active_timer:
-                                st.warning("⚠️ Stoppe zuerst den aktiven Timer!")
-                            else:
-                                st.session_state.active_timer = True
-                                st.session_state.timer_start = datetime.now()
-                                st.session_state.timer_task_id = task["id"]
-                                st.rerun()
-                
-                with col3:
-                    if st.button("✓ Done", key=f"done_{task['id']}", use_container_width=True):
+            st.markdown(f"""
+            <div class="task-card" style="border-left: 5px solid {priority_color};">
+                <div style="display: flex; justify-content: space-between;">
+                    <h3 style="margin:0;">{task['title']}</h3>
+                    {badge}
+                </div>
+                <p>📂 {task['category']} | 🎯 {priority}</p>
+                <p>⏱️ {task.get('total_time_spent', 0):.0f} {t('min')} / {task.get('estimated_time', 60)} {t('min')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
+            
+            with col1:
+                progress = min(task.get('total_time_spent', 0) / max(task.get('estimated_time', 60), 1), 1.0)
+                st.progress(progress)
+            
+            with col2:
+                if not task.get("done", False) and not st.session_state.active_timer:
+                    if st.button(t('start'), key=f"start_{task['id']}", use_container_width=True):
+                        st.session_state.active_timer = True
+                        st.session_state.timer_running = True
+                        st.session_state.timer_start = datetime.now()
+                        st.session_state.timer_task_id = task["id"]
+                        st.rerun()
+                elif st.session_state.active_timer and st.session_state.timer_task_id == task["id"]:
+                    if st.button(t('stop'), key=f"stop_{task['id']}", use_container_width=True):
+                        # Arrêter le timer
+                        elapsed = datetime.now() - st.session_state.timer_start
+                        minutes = elapsed.total_seconds() / 60
+                        
+                        entries = load_time_entries()
+                        entry = {
+                            "task_id": task["id"],
+                            "task_title": task["title"],
+                            "start_time": st.session_state.timer_start.isoformat(),
+                            "end_time": datetime.now().isoformat(),
+                            "duration_minutes": round(minutes, 2),
+                            "date": date.today().isoformat()
+                        }
+                        entries.append(entry)
+                        save_time_entries(entries)
+                        
                         data = load_data()
                         for t in data["tasks"]:
                             if t["id"] == task["id"]:
-                                t["done"] = not t.get("done", False)
+                                t["total_time_spent"] = t.get("total_time_spent", 0) + round(minutes, 2)
                                 break
                         save_data(data)
+                        
+                        st.session_state.active_timer = False
+                        st.session_state.timer_running = False
                         st.rerun()
-                
-                with col4:
-                    if st.button("✏️ Edit", key=f"edit_{task['id']}", use_container_width=True):
-                        st.session_state[f"editing_{task['id']}"] = True
-                
-                # Dans TAB 1, remplace le bouton de suppression existant par :
-                with col5:
-                    if st.button("🗑️", key=f"del_{task['id']}"):
-                        # Déplacer vers la corbeille au lieu de supprimer définitivement
-                        move_to_recycle_bin(task.to_dict() if hasattr(task, 'to_dict') else dict(task))
-                        
-                        # Supprimer de la liste principale
-                        data = load_data()
-                        data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
-                        save_data(data)
-                        
-                        st.success(f"✅ Aufgabe '{task['title']}' wurde in den Papierkorb verschoben!")
-                        st.rerun()
-                
-                # Notes si présentes
-                if task.get("notes"):
-                    st.info(f"📝 {task['notes']}")
-                
-                # Formulaire d'édition
-                if st.session_state.get(f"editing_{task['id']}", False):
-                    with st.form(key=f"edit_form_{task['id']}"):
-                        new_title = st.text_input("Titel", value=task["title"])
-                        new_category = st.text_input("Kategorie", value=task["category"])
-                        new_deadline = st.date_input("Frist", 
-                            value=datetime.strptime(task["deadline"], "%Y-%m-%d").date() if task["deadline"] else today)
-                        new_priority = st.selectbox("Priorität", ["Hoch", "Mittel", "Niedrig"], 
-                            index=["Hoch", "Mittel", "Niedrig"].index(task.get("priority", "Mittel")))
-                        new_estimated = st.number_input("Geschätzte Zeit (min)", 
-                            value=task.get("estimated_time", 60), min_value=1)
-                        new_notes = st.text_area("Notizen", value=task.get("notes", ""))
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.form_submit_button("💾 Speichern"):
-                                data = load_data()
-                                for t in data["tasks"]:
-                                    if t["id"] == task["id"]:
-                                        t.update({
-                                            "title": new_title,
-                                            "category": new_category,
-                                            "deadline": new_deadline.strftime("%Y-%m-%d"),
-                                            "priority": new_priority,
-                                            "estimated_time": new_estimated,
-                                            "notes": new_notes
-                                        })
-                                        break
-                                save_data(data)
-                                st.session_state[f"editing_{task['id']}"] = False
-                                st.rerun()
-                        with col2:
-                            if st.form_submit_button("❌ Abbrechen"):
-                                st.session_state[f"editing_{task['id']}"] = False
-                                st.rerun()
-                
-                st.markdown("</div>", unsafe_allow_html=True)
+            
+            with col3:
+                if st.button(t('done'), key=f"done_{task['id']}", use_container_width=True):
+                    data = load_data()
+                    for t in data["tasks"]:
+                        if t["id"] == task["id"]:
+                            t["done"] = not t.get("done", False)
+                            break
+                    save_data(data)
+                    st.rerun()
+            
+            with col4:
+                if st.button(t('edit'), key=f"edit_{task['id']}", use_container_width=True):
+                    st.session_state[f"edit_{task['id']}"] = True
+            
+            with col5:
+                if st.button("🗑️", key=f"del_{task['id']}", use_container_width=True):
+                    # Déplacer vers la corbeille
+                    task_dict = dict(task)
+                    move_to_recycle_bin(task_dict)
+                    
+                    data = load_data()
+                    data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
+                    save_data(data)
+                    
+                    st.success(f"✅ Aufgabe in den Papierkorb verschoben!")
+                    st.rerun()
+            
+            # Formulaire d'édition
+            if st.session_state.get(f"edit_{task['id']}", False):
+                with st.form(key=f"edit_form_{task['id']}"):
+                    new_title = st.text_input(t('title'), value=task["title"])
+                    new_category = st.selectbox(t('category'), t('category_options'), 
+                                              index=t('category_options').index(task.get('category', t('category_options')[0])) if task.get('category') in t('category_options') else 0)
+                    new_priority = st.selectbox(t('priority'), t('priority_options'),
+                                              index=t('priority_options').index(task.get('priority', t('priority_options')[1])))
+                    new_estimated = st.number_input(t('estimated_time'), value=task.get('estimated_time', 60), min_value=1)
+                    new_notes = st.text_area(t('notes'), value=task.get('notes', ''))
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.form_submit_button("💾 " + t('edit')):
+                            data = load_data()
+                            for t in data["tasks"]:
+                                if t["id"] == task["id"]:
+                                    t.update({
+                                        "title": new_title,
+                                        "category": new_category,
+                                        "priority": new_priority,
+                                        "estimated_time": new_estimated,
+                                        "notes": new_notes
+                                    })
+                                    break
+                            save_data(data)
+                            st.session_state[f"edit_{task['id']}"] = False
+                            st.rerun()
+                    with col2:
+                        if st.form_submit_button("❌ " + t('edit') + " " + t('delete')):
+                            st.session_state[f"edit_{task['id']}"] = False
+                            st.rerun()
+            
+            st.divider()
     else:
-        st.info("✨ Keine Aufgaben vorhanden. Erstelle deine erste Aufgabe!")
+        st.info(f"✨ {t('tasks_header')}")
 
-# TAB 2: Neue Aufgabe
-# TAB 2: Neue Aufgabe
+# ==================== TAB 2: NEUE AUFGABE ====================
 with tab2:
-    st.header("➕ Neue Aufgabe mit Zeit-Schätzung")
+    st.header(t('new_task'))
     
-    # DÉFINIR today ICI pour cette section
     today = date.today()
     
     with st.form("new_task_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
         with col1:
-            title = st.text_input("📌 Titel *", placeholder="z.B. Prüfungsanmeldung")
-            category = st.selectbox("📂 Kategorie", 
-                ["Immatrikulation", "Organisatorisch", "Prüfungen", "Finanzen", "Wohnen", "Sonstiges"])
-            priority = st.select_slider("🎯 Priorität", 
-                options=["Niedrig", "Mittel", "Hoch"], value="Mittel")
+            title = st.text_input(f"📌 {t('title')} *", placeholder=t('title'))
+            category = st.selectbox(f"📂 {t('category')}", t('category_options'))
+            priority = st.select_slider(f"🎯 {t('priority')}", options=t('priority_options'), value=t('priority_options')[1])
         
         with col2:
-            deadline = st.date_input("📅 Frist", min_value=today)  # today est maintenant défini
-            estimated_time = st.number_input("⏱️ Geschätzte Zeit (Minuten)", 
-                min_value=5, max_value=480, value=60, step=5)
-            link = st.text_input("🔗 Link (optional)", placeholder="https://...")
+            deadline = st.date_input(f"📅 {t('deadline')}", min_value=today)
+            estimated_time = st.number_input(f"⏱️ {t('estimated_time')} ({t('min')})", min_value=5, max_value=480, value=60, step=5)
+            link = st.text_input("🔗 Link", placeholder="https://...")
         
-        notes = st.text_area("📝 Notizen", placeholder="Weitere Details...", height=100)
+        notes = st.text_area(f"📝 {t('notes')}", placeholder="...", height=100)
         
-        submitted = st.form_submit_button("🚀 Aufgabe erstellen", use_container_width=True)
+        submitted = st.form_submit_button(f"🚀 {t('create_task')}", use_container_width=True)
         
         if submitted and title:
             data = load_data()
@@ -518,186 +1098,111 @@ with tab2:
             data["tasks"].append(task)
             data["next_id"] = new_id + 1
             save_data(data)
-            st.success(f"✅ Aufgabe '{title}' erfolgreich erstellt!")
+            st.success(f"✅ {t('task_created')}")
             st.balloons()
 
-# TAB 3: Zeiterfassung
+# ==================== TAB 3: ZEITERFASSUNG ====================
 with tab3:
-    st.header("⏱️ Zeiterfassung & Verlauf")
+    st.header("⏱️ " + t('time_recorded').replace('⏱️ ', ''))
     
     time_entries = load_time_entries()
     
     if time_entries:
-        # Graphique du temps par jour
         entries_df = pd.DataFrame(time_entries)
         entries_df['date'] = pd.to_datetime(entries_df['date'])
-        daily_time = entries_df.groupby('date')['duration_minutes'].sum().reset_index()
         
+        # Graphique
+        daily_time = entries_df.groupby('date')['duration_minutes'].sum().reset_index()
         fig = px.bar(daily_time, x='date', y='duration_minutes', 
-                     title='Tägliche Arbeitszeit',
-                     labels={'duration_minutes': 'Minuten', 'date': 'Datum'},
-                     color_discrete_sequence=['#667eea'])
-        fig.update_layout(showlegend=False)
+                     title=t('time_recorded').replace('⏱️ ', ''),
+                     labels={'duration_minutes': t('minutes'), 'date': t('deadline')})
         st.plotly_chart(fig, use_container_width=True)
         
-        # Tableau des entrées
-        st.subheader("📋 Letzte Einträge")
-        
-        # Formater pour affichage
+        # Tableau
+        st.subheader("📋 " + t('time_recorded'))
         display_df = entries_df.copy()
         display_df['Datum'] = display_df['date'].dt.strftime('%d.%m.%Y')
-        display_df['Aufgabe'] = display_df['task_title']
-        display_df['Dauer'] = display_df['duration_minutes'].apply(lambda x: f"{int(x)} min ({x/60:.1f}h)")
-        display_df['Start'] = pd.to_datetime(display_df['start_time']).dt.strftime('%H:%M')
-        display_df['Ende'] = pd.to_datetime(display_df['end_time']).dt.strftime('%H:%M')
+        display_df[t('tasks')] = display_df['task_title']
+        display_df[t('minutes')] = display_df['duration_minutes'].apply(lambda x: f"{int(x)} {t('min')}")
         
-        st.dataframe(
-            display_df[['Datum', 'Aufgabe', 'Start', 'Ende', 'Dauer']].sort_values('Datum', ascending=False),
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(display_df[['Datum', t('tasks'), t('minutes')]], use_container_width=True, hide_index=True)
         
-        # Statistiques
-        st.subheader("📊 Zusammenfassung")
-        col1, col2, col3, col4 = st.columns(4)
-        
+        # Stats
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Zeit", f"{int(entries_df['duration_minutes'].sum())} min", 
-                     f"{entries_df['duration_minutes'].sum()/60:.1f}h")
+            st.metric(t('total_time'), f"{int(entries_df['duration_minutes'].sum())} {t('min')}")
         with col2:
-            st.metric("Durchschnitt", f"{entries_df['duration_minutes'].mean():.0f} min", 
-                     "pro Session")
+            st.metric(t('tasks'), len(entries_df))
         with col3:
-            st.metric("Sessions", len(entries_df), "")
-        with col4:
-            st.metric("Produktivste Zeit", 
-                     pd.to_datetime(entries_df['start_time']).dt.hour.mode().iloc[0] if len(entries_df) > 0 else "-", 
-                     "Uhr")
+            st.metric(t('stats'), f"{int(entries_df['duration_minutes'].mean())} {t('min')}")
     else:
-        st.info("⏳ Noch keine Zeiteinträge vorhanden. Starte einen Timer von einer Aufgabe!")
+        st.info("⏳ " + t('time_recorded'))
 
-# TAB 4: Analysen
+# ==================== TAB 4: ANALYSEN ====================
 with tab4:
-    st.header("📊 Detaillierte Analysen")
-    
-    data = load_data()
-    time_entries = load_time_entries()
-    
-    if data["tasks"]:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Répartition par catégorie
-            st.subheader("Aufgaben nach Kategorie")
-            category_counts = pd.DataFrame(data["tasks"])["category"].value_counts()
-            fig = px.pie(values=category_counts.values, names=category_counts.index,
-                        color_discrete_sequence=px.colors.sequential.RdBu)
-            st.p
-            
-# TAB 4: Analysen (VERSION CORRIGÉE)
-with tab4:
-    st.header("📊 Detaillierte Analysen")
+    st.header(t('analysis'))
     
     data = load_data()
     today = date.today()
     
     if data["tasks"]:
-        # Créer un DataFrame sécurisé
+        # Créer DataFrame sécurisé
         tasks_list = []
         for task in data["tasks"]:
-            # S'assurer que toutes les clés existent
             safe_task = {
                 "title": task.get("title", "Sans titre"),
                 "category": task.get("category", "Sonstiges"),
-                "priority": task.get("priority", "Mittel"),
+                "priority": task.get("priority", t('priority_options')[1]),
                 "estimated_time": task.get("estimated_time", 60),
                 "total_time_spent": task.get("total_time_spent", 0),
                 "done": task.get("done", False),
                 "deadline": task.get("deadline", ""),
-                "notes": task.get("notes", "")
             }
             tasks_list.append(safe_task)
         
         tasks_df = pd.DataFrame(tasks_list)
-        
-        # Ajouter les colonnes calculées
         tasks_df['Effizienz'] = tasks_df.apply(
             lambda x: f"{min(100, int(x['total_time_spent'] / max(x['estimated_time'], 1) * 100))}%", 
             axis=1
         )
-        tasks_df['Status'] = tasks_df['done'].apply(lambda x: "✅ Erledigt" if x else "🔄 Offen")
+        tasks_df['Status'] = tasks_df['done'].apply(lambda x: "✅ " + t('completed') if x else "🔄 " + t('active'))
         
         # Graphiques
         col1, col2 = st.columns(2)
         
         with col1:
-            # Graphique catégories
-            st.subheader("📊 Aufgaben nach Kategorie")
+            st.subheader(t('by_category'))
             if not tasks_df.empty:
                 category_counts = tasks_df['category'].value_counts()
-                fig = px.pie(
-                    values=category_counts.values, 
-                    names=category_counts.index,
-                    title="Verteilung nach Kategorie",
-                    color_discrete_sequence=px.colors.qualitative.Set3
-                )
-                fig.update_traces(textposition='inside', textinfo='percent+label')
+                fig = px.pie(values=category_counts.values, names=category_counts.index,
+                           title=t('by_category'))
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Keine Daten verfügbar")
         
         with col2:
-            # Progression globale
-            st.subheader("📈 Fortschritt")
+            st.subheader(t('progress'))
             done_count = len(tasks_df[tasks_df['done']])
             total_count = len(tasks_df)
             
             if total_count > 0:
                 fig = go.Figure(go.Indicator(
-                    mode="gauge+number+delta",
-                    value=done_count,
-                    number={'prefix': "✅ "},
-                    delta={'reference': total_count, 'valueformat': '.0f'},
-                    title={'text': f"Erledigte Aufgaben von {total_count}"},
-                    gauge={
-                        'axis': {'range': [None, total_count]},
-                        'bar': {'color': "#4CAF50"},
-                        'steps': [
-                            {'range': [0, total_count/2], 'color': "#FFB74D"},
-                            {'range': [total_count/2, total_count], 'color': "#81C784"}
-                        ],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': total_count
-                        }
-                    }
+                    mode="gauge+number",
+                    value=done_count/total_count*100,
+                    title={'text': f"{done_count}/{total_count} {t('completed')}"},
+                    gauge={'axis': {'range': [None, 100]}}
                 ))
-                fig.update_layout(height=300)
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Keine Aufgaben vorhanden")
         
-        # Statistiques supplémentaires
-        st.subheader("📋 Statistiques détaillées")
-        
-        # Métriques en ligne
+        # Statistiques
+        st.subheader(t('stats'))
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         
         with col_m1:
             total_time_all = tasks_df['total_time_spent'].sum()
-            st.metric(
-                "⏱️ Temps total",
-                f"{int(total_time_all)} min",
-                f"{total_time_all/60:.1f}h"
-            )
+            st.metric(t('total_time'), f"{int(total_time_all)} {t('min')}")
         
         with col_m2:
-            avg_time_per_task = tasks_df['total_time_spent'].mean()
-            st.metric(
-                "📊 Moyenne par tâche",
-                f"{int(avg_time_per_task)} min"
-            )
+            avg_time = tasks_df['total_time_spent'].mean()
+            st.metric(t('stats'), f"{int(avg_time)} {t('min')}")
         
         with col_m3:
             overdue_count = len([
@@ -705,805 +1210,172 @@ with tab4:
                 if not t.get("done", False) 
                 and t.get("deadline", "9999") < today.strftime("%Y-%m-%d")
             ])
-            st.metric(
-                "⚠️ Überfällig",
-                overdue_count,
-                delta_color="inverse"
-            )
+            st.metric(t('overdue'), overdue_count)
         
         with col_m4:
-            high_priority = len([t for t in data["tasks"] if t.get("priority") == "Hoch"])
-            st.metric(
-                "🔥 Hohe Priorität",
-                high_priority
-            )
+            high_priority = len([t for t in data["tasks"] if t.get("priority") == t('priority_options')[2]])
+            st.metric(t('priority'), high_priority)
         
-        # Tableau des tâches (VERSION CORRIGÉE)
-        st.subheader("📋 Liste détaillée des tâches")
+        # Tableau
+        st.subheader("📋 " + t('tasks'))
+        display_cols = ['title', 'category', 'priority', 'estimated_time', 'total_time_spent', 'Effizienz', 'Status']
+        st.dataframe(tasks_df[display_cols], use_container_width=True, hide_index=True)
         
-        # Sélectionner seulement les colonnes qui existent
-        display_columns = []
-        column_config = {}
-        
-        # Définir les colonnes à afficher avec leurs configurations
-        columns_to_show = [
-            ("title", "Tâche"),
-            ("category", "Catégorie"),
-            ("priority", "Priorité"),
-            ("estimated_time", "Estimé (min)"),
-            ("total_time_spent", "Passé (min)"),
-            ("Effizienz", "Efficacité"),
-            ("Status", "Statut")
-        ]
-        
-        for col, label in columns_to_show:
-            if col in tasks_df.columns:
-                display_columns.append(col)
-                column_config[col] = label
-        
-        if display_columns:
-            st.dataframe(
-                tasks_df[display_columns],
-                use_container_width=True,
-                hide_index=True,
-                column_config={col: col for col in display_columns}  # Simplifié
-            )
-        
-        # Graphique d'efficacité
-        st.subheader("📊 Analyse d'efficacité")
-        
-        # Préparer les données pour le graphique
-        chart_df = tasks_df.copy()
-        chart_df['efficacite_num'] = chart_df.apply(
-            lambda x: min(100, int(x['total_time_spent'] / max(x['estimated_time'], 1) * 100)),
-            axis=1
-        )
-        
-        # Graphique en barres
-        fig = px.bar(
-            chart_df,
-            x='title',
-            y='efficacite_num',
-            color='category',
-            title="Efficacité par tâche (%)",
-            labels={'title': 'Tâche', 'efficacite_num': 'Efficacité (%)', 'category': 'Catégorie'},
-            color_discrete_sequence=px.colors.qualitative.Set3
-        )
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Export des données
-        st.subheader("📥 Export des données")
-        if st.button("📥 Exporter en CSV"):
+        # Export
+        if st.button(t('export')):
             csv = tasks_df.to_csv(index=False)
             st.download_button(
-                "📥 Télécharger CSV",
+                f"📥 {t('export')} CSV",
                 csv,
                 f"campus_daten_{date.today().isoformat()}.csv",
-                "text/csv",
-                key='download-csv'
+                "text/csv"
             )
-    
     else:
-        st.info("📊 Keine Daten für Analysen vorhanden. Erstelle zuerst Aufgaben!")
-        
-        # Afficher un exemple
-        with st.expander("ℹ️ Comment ça marche ?"):
-            st.markdown("""
-            **Cette page d'analyse te permet de :**
-            - 📊 Visualiser la répartition de tes tâches
-            - ⏱️ Suivre ton temps de travail
-            - 📈 Évaluer ton efficacité
-            - 📥 Exporter tes données
-            
-            Commence par créer des tâches dans l'onglet **➕ Neue Aufgabe** !
-            """)
+        st.info(f"📊 {t('analysis')}")
 
-# TAB 5: Feedback
-# Imports supplémentaires en haut du fichier
-import sendgrid
-from sendgrid.helpers.mail import Mail
-import hmac
-import hashlib
-
-# Configuration email (à mettre après les autres configurations)
-# À remplacer par tes informations
-SENDGRID_API_KEY = st.secrets.get("SENDGRID_API_KEY", "TA_CLE_API_ICI")
-FROM_EMAIL = "campus@eingang.de"  # À vérifier dans SendGrid (sender verification)
-TO_EMAIL = "ton-email@example.com"  # Où tu veux recevoir les feedbacks
-# Ajoute cette ligne avec les autres fichiers de données
-RECYCLE_BIN_FILE = os.path.join(DATA_DIR, "recycle_bin.json")
-# Fonctions pour la corbeille
-def load_recycle_bin():
-    """Charge les tâches supprimées"""
-    ensure_files()
-    if os.path.exists(RECYCLE_BIN_FILE):
-        with open(RECYCLE_BIN_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-def save_recycle_bin(items):
-    """Sauvegarde la corbeille"""
-    with open(RECYCLE_BIN_FILE, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
-
-def move_to_recycle_bin(task):
-    """Déplace une tâche vers la corbeille"""
-    recycle_bin = load_recycle_bin()
-    
-    # Ajouter la date de suppression
-    task_with_meta = task.copy()
-    task_with_meta['deleted_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    task_with_meta['can_be_restored'] = True
-    
-    recycle_bin.append(task_with_meta)
-    save_recycle_bin(recycle_bin)
-
-def restore_from_recycle_bin(task_id):
-    """Restaure une tâche depuis la corbeille"""
-    recycle_bin = load_recycle_bin()
-    task_to_restore = None
-    
-    for task in recycle_bin:
-        if task['id'] == task_id:
-            task_to_restore = task
-            recycle_bin.remove(task)
-            break
-    
-    if task_to_restore:
-        # Nettoyer les métadonnées de suppression
-        task_to_restore.pop('deleted_at', None)
-        task_to_restore.pop('can_be_restored', None)
-        
-        save_recycle_bin(recycle_bin)
-        return task_to_restore
-    
-    return None
-
-def permanently_delete(task_id):
-    """Supprime définitivement une tâche"""
-    recycle_bin = load_recycle_bin()
-    recycle_bin = [t for t in recycle_bin if t['id'] != task_id]
-    save_recycle_bin(recycle_bin)
-
-#Feedback
-def send_feedback_email(name, email, feedback_type, feedback, urgency):
-    """
-    Envoie un email avec les détails du feedback
-    """
-    try:
-        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
-        
-        # Construction de l'email HTML
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                          color: white; padding: 20px; border-radius: 10px 10px 0 0; }}
-                .content {{ background: #f5f5f5; padding: 20px; border-radius: 0 0 10px 10px; }}
-                .field {{ margin: 15px 0; }}
-                .label {{ font-weight: bold; color: #667eea; }}
-                .value {{ background: white; padding: 10px; border-radius: 5px; margin-top: 5px; }}
-                .urgency {{ display: inline-block; padding: 5px 15px; border-radius: 20px; 
-                          font-weight: bold; }}
-                .urgency-Hoch {{ background: #ff6b6b; color: white; }}
-                .urgency-Mittel {{ background: #feca57; color: black; }}
-                .urgency-Niedrig {{ background: #48dbfb; color: black; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>📬 Nouveau Feedback - CampusEingang</h1>
-                </div>
-                <div class="content">
-                    <div class="field">
-                        <div class="label">👤 De:</div>
-                        <div class="value">{name}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">📧 Email:</div>
-                        <div class="value">{email if email else 'Non renseigné'}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">📝 Type:</div>
-                        <div class="value">{feedback_type}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">⚠️ Dringlichkeit:</div>
-                        <div class="value">
-                            <span class="urgency urgency-{urgency}">{urgency}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">💬 Feedback:</div>
-                        <div class="value">{feedback}</div>
-                    </div>
-                    
-                    <div class="field">
-                        <div class="label">⏰ Zeitstempel:</div>
-                        <div class="value">{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</div>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Créer le message
-        message = Mail(
-            from_email=FROM_EMAIL,
-            to_emails=TO_EMAIL,
-            subject=f'📬 CampusEingang - Neues Feedback von {name}',
-            html_content=html_content
-        )
-        
-        # Envoyer
-        response = sg.send(message)
-        
-        # Optionnel: Envoyer une confirmation à l'utilisateur
-        if email:
-            confirmation = Mail(
-                from_email=FROM_EMAIL,
-                to_emails=email,
-                subject='✅ Dein Feedback wurde empfangen - CampusEingang',
-                html_content=f'''
-                <h2>Danke für dein Feedback!</h2>
-                <p>Hallo {name},</p>
-                <p>wir haben dein Feedback erhalten und werden es schnellstmöglich bearbeiten.</p>
-                <p><strong>Dein Feedback:</strong> {feedback}</p>
-                <p>Vielen Dank für deine Hilfe, CampusEingang besser zu machen! 🎓</p>
-                '''
-            )
-            sg.send(confirmation)
-        
-        return True, "Email envoyé avec succès"
-    
-    except Exception as e:
-        return False, str(e)
-
-# Fonction pour vérifier l'intégrité des données
-def hash_feedback_id(feedback_id, timestamp):
-    """Crée un hash unique pour chaque feedback"""
-    secret = st.secrets.get("HASH_SECRET", "campus2026_secret")
-    text = f"{feedback_id}_{timestamp}_{secret}"
-    return hmac.new(secret.encode(), text.encode(), hashlib.sha256).hexdigest()[:8]
-
-# TAB 5: Feedback (Version Email)
+# ==================== TAB 5: FEEDBACK AVEC EMAIL ====================
 with tab5:
-    st.header("🗣️ Feedback & Probleme")
+    st.header(t('feedback_header'))
     
-    # Créer des onglets pour une meilleure organisation
-    tab_send, tab_stats, tab_admin = st.tabs(["📝 Feedback senden", "📊 Statistiques", "🔐 Admin"])
+    col1, col2 = st.columns([2, 1])
     
-    # TAB: Envoyer un feedback
-    with tab_send:
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); 
-                        padding: 20px; border-radius: 15px; margin-bottom: 20px;">
-                <h3 style="margin-top:0;">Deine Meinung zählt! 💭</h3>
-                <p>Hilf uns, CampusEingang zu verbessern. Jedes Feedback wird ernst genommen!</p>
-            </div>
-            """, unsafe_allow_html=True)
+    with col1:
+        with st.form("feedback_form"):
+            name = st.text_input(f"👤 {t('name')}", placeholder="Max Mustermann")
+            email = st.text_input(f"📧 {t('email')}", placeholder="max@example.com", 
+                                 help="Für Rückmeldung zu deinem Feedback")
+            feedback_type = st.selectbox(f"📝 {t('feedback_type')}", t('feedback_types'))
+            urgency = st.select_slider(f"⚠️ {t('urgency')}", options=t('urgency_options'), value=t('urgency_options')[1])
+            feedback = st.text_area(f"💬 {t('feedback_text')} *", height=150)
             
-            with st.form("feedback_email_form"):
-                # Informations personnelles
-                col_name, col_email = st.columns(2)
-                with col_name:
-                    name = st.text_input(
-                        "👤 Dein Name", 
-                        placeholder="z.B. Max Mustermann",
-                        help="Wird nur für Rückfragen verwendet"
+            submitted = st.form_submit_button(f"📨 {t('send')}", use_container_width=True, type="primary")
+            
+            if submitted and feedback:
+                with st.spinner("📤 Senden..."):
+                    # Sauvegarde locale
+                    ensure_files()
+                    with open(SURVEY_FILE, "r", encoding="utf-8") as f:
+                        entries = json.load(f)
+                    
+                    entry = {
+                        "id": len(entries) + 1,
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "name": name or "Anonym",
+                        "email": email,
+                        "type": feedback_type,
+                        "feedback": feedback,
+                        "urgency": urgency,
+                        "language": st.session_state.get('language', 'DE')
+                    }
+                    entries.append(entry)
+                    
+                    with open(SURVEY_FILE, "w", encoding="utf-8") as f:
+                        json.dump(entries, f, ensure_ascii=False, indent=2)
+                    
+                    # Envoi email
+                    success, message = send_feedback_email(
+                        name or "Anonym",
+                        email,
+                        feedback_type,
+                        feedback,
+                        urgency,
+                        st.session_state.get('language', 'DE')
                     )
-                with col_email:
-                    email = st.text_input(
-                        "📧 Deine E-Mail", 
-                        placeholder="max@example.com",
-                        help="Für Rückmeldung zu deinem Feedback"
-                    )
-                
-                # Type de feedback avec icônes
-                feedback_type = st.selectbox(
-                    "📌 Art des Feedbacks",
-                    [
-                        "💡 Verbesserungsvorschlag",
-                        "🐛 Bug/Fehler melden",
-                        "❓ Frage / Hilfe",
-                        "👍 Lob / Positive Rückmeldung",
-                        "👎 Kritik / Negatives Erlebnis",
-                        "🚀 Feature-Wunsch"
-                    ]
-                )
-                
-                # Dringlichkeit avec emojis
-                urgency = st.select_slider(
-                    "⚡ Dringlichkeit",
-                    options=["Niedrig", "Mittel", "Hoch", "Kritisch"],
-                    value="Mittel",
-                    help="Wie dringend ist dein Anliegen?"
-                )
-                
-                # Feedback texte
-                feedback = st.text_area(
-                    "💬 Dein Feedback *", 
-                    placeholder="""Was möchtest du uns mitteilen?
                     
-                    - Was gefällt dir besonders?
-                    - Was könnte verbessert werden?
-                    - Hast du einen Fehler gefunden?
-                    - Fehlt eine Funktion?""",
-                    height=150
-                )
-                
-                # Options supplémentaires
-                col_anon, col_copy = st.columns(2)
-                with col_anon:
-                    anonymous = st.checkbox("🕵️ Anonym bleiben", help="Dein Name wird nicht übermittelt")
-                with col_copy:
-                    copy_me = st.checkbox("📋 Kopie an mich", value=True, help="Erhalte eine Bestätigung per Email")
-                
-                # Bouton d'envoi
-                submitted = st.form_submit_button(
-                    "📨 Feedback senden", 
-                    use_container_width=True,
-                    type="primary"
-                )
-                
-                if submitted and feedback:
-                    with st.spinner("📤 Envoi en cours..."):
-                        # Préparer les données
-                        final_name = "Anonym" if anonymous else (name or "Anonym")
-                        final_email = "" if anonymous else email
-                        
-                        # Sauvegarder localement (backup)
-                        ensure_files()
-                        with open(SURVEY_FILE, "r", encoding="utf-8") as f:
-                            entries = json.load(f)
-                        
-                        feedback_id = len(entries) + 1
-                        timestamp = datetime.now().isoformat()
-                        
-                        entry = {
-                            "id": feedback_id,
-                            "hash": hash_feedback_id(feedback_id, timestamp),
-                            "timestamp": timestamp,
-                            "name": final_name,
-                            "email": final_email,
-                            "type": feedback_type,
-                            "feedback": feedback,
-                            "urgency": urgency,
-                            "status": "Nouveau",
-                            "responded": False
-                        }
-                        entries.append(entry)
-                        
-                        with open(SURVEY_FILE, "w", encoding="utf-8") as f:
-                            json.dump(entries, f, ensure_ascii=False, indent=2)
-                        
-                        # Envoyer par email
-                        success, message = send_feedback_email(
-                            final_name, 
-                            final_email if copy_me else "",
-                            feedback_type, 
-                            feedback, 
-                            urgency
-                        )
-                        
-                        if success:
-                            st.success("✅ Feedback erfolgreich gesendet! Vielen Dank für deine Hilfe! 🎉")
-                            st.balloons()
-                            
-                            # Afficher un résumé
-                            with st.expander("📋 Zusammenfassung deines Feedbacks"):
-                                st.markdown(f"""
-                                **Name:** {final_name}  
-                                **Typ:** {feedback_type}  
-                                **Dringlichkeit:** {urgency}  
-                                **Feedback:** {feedback}
-                                """)
-                        else:
-                            st.error(f"❌ Fehler beim Senden: {message}")
-                            st.info("📝 Dein Feedback wurde lokal gespeichert und wird später gesendet.")
-        
-        with col2:
-            st.markdown("### 📊 Quick Stats")
-            
-            # Afficher des statistiques rapides
-            if os.path.exists(SURVEY_FILE):
-                with open(SURVEY_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f)
-                
-                if entries:
-                    # Dernier feedback
-                    last = entries[-1]
-                    st.markdown(f"""
-                    **Dernier feedback:**  
-                    {last.get('timestamp', '')[:10]}  
-                    *{last.get('feedback', '')[:50]}...*
-                    """)
-                    
-                    # Compteurs
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Total", len(entries))
-                    with col_b:
-                        urgent = len([e for e in entries if e.get('urgency') in ['Hoch', 'Kritisch']])
-                        st.metric("Urgent", urgent)
-                    
-                    # Types populaires
-                    from collections import Counter
-                    types = Counter([e.get('type', 'Sonstiges') for e in entries[-10:]])
-                    st.markdown("**Top Themen:**")
-                    for t, c in types.most_common(3):
-                        st.caption(f"{t}: {c}x")
-            
-            # Guide d'utilisation
-            st.markdown("---")
-            st.markdown("""
-            ### 📝 Guide
-            **🟢 Niedrig:** Vorschläge, Lob  
-            **🟡 Mittel:** Fragen, Verbesserungen  
-            **🟠 Hoch:** Wichtige Probleme  
-            **🔴 Kritisch:** Dringende Fehler
-            """)
+                    if success:
+                        st.success(t('feedback_sent'))
+                        st.balloons()
+                    else:
+                        st.error(f"❌ Fehler: {message}")
+                        st.info("📝 Feedback wurde lokal gespeichert.")
     
-    # TAB: Statistiques détaillées
-    with tab_stats:
-        st.subheader("📈 Feedback Statistiken")
-        
+    with col2:
+        st.subheader("📊 " + t('stats'))
         if os.path.exists(SURVEY_FILE):
             with open(SURVEY_FILE, "r", encoding="utf-8") as f:
                 entries = json.load(f)
             
             if entries:
-                df = pd.DataFrame(entries)
-                df['date'] = pd.to_datetime(df['timestamp']).dt.date
+                st.metric(t('feedback_header'), len(entries))
                 
-                # Graphiques
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Feedbacks par jour
-                    daily = df.groupby('date').size().reset_index(name='count')
-                    fig = px.bar(daily, x='date', y='count', title='Feedbacks par jour')
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                with col2:
-                    # Répartition par type
-                    type_counts = df['type'].value_counts()
-                    fig = px.pie(values=type_counts.values, names=type_counts.index, title='Types de feedback')
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                # Tableau des derniers
-                st.subheader("📋 Derniers Feedbacks")
-                display_df = df[['timestamp', 'name', 'type', 'urgency', 'status']].sort_values('timestamp', ascending=False).head(10)
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
-            else:
-                st.info("Noch keine Feedbacks vorhanden")
-    
-    # TAB: Admin (protégé)
-    with tab_admin:
-        st.subheader("🔒 Administration")
-        
-        # Mot de passe simple
-        password = st.text_input("Admin Passwort", type="password")
-        
-        if password == "campus2026":  # À changer !
-            if os.path.exists(SURVEY_FILE):
-                with open(SURVEY_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f)
-                
-                if entries:
-                    # Filtres
-                    col_f1, col_f2, col_f3 = st.columns(3)
-                    with col_f1:
-                        status_filter = st.selectbox(
-                            "Status filtern",
-                            ["Alle", "Nouveau", "En cours", "Erledigt"]
-                        )
-                    with col_f2:
-                        urgency_filter = st.selectbox(
-                            "Dringlichkeit filtern",
-                            ["Alle", "Niedrig", "Mittel", "Hoch", "Kritisch"]
-                        )
-                    with col_f3:
-                        search = st.text_input("🔍 Suche", placeholder="Nom, feedback...")
-                    
-                    # Appliquer les filtres
-                    filtered = entries
-                    if status_filter != "Alle":
-                        filtered = [e for e in filtered if e.get('status') == status_filter]
-                    if urgency_filter != "Alle":
-                        filtered = [e for e in filtered if e.get('urgency') == urgency_filter]
-                    if search:
-                        filtered = [e for e in filtered if 
-                                  search.lower() in e.get('name', '').lower() or 
-                                  search.lower() in e.get('feedback', '').lower()]
-                    
-                    # Afficher
-                    for entry in reversed(filtered):
-                        with st.expander(
-                            f"[{entry.get('timestamp', '')}] {entry.get('name', 'Anonym')} - {entry.get('type', 'Feedback')} "
-                            f"[{entry.get('urgency', 'Mittel')}]"
-                        ):
-                            col1, col2, col3 = st.columns([3, 1, 1])
-                            
-                            with col1:
-                                st.markdown(f"**ID:** {entry.get('id')} | **Hash:** {entry.get('hash', 'N/A')}")
-                                st.markdown(f"**Feedback:** {entry.get('feedback', '')}")
-                                if entry.get('email'):
-                                    st.markdown(f"**Email:** {entry['email']}")
-                            
-                            with col2:
-                                new_status = st.selectbox(
-                                    "Status",
-                                    ["Nouveau", "En cours", "Erledigt"],
-                                    index=["Nouveau", "En cours", "Erledigt"].index(entry.get('status', 'Nouveau')),
-                                    key=f"status_{entry['id']}"
-                                )
-                                if new_status != entry.get('status'):
-                                    entry['status'] = new_status
-                                    with open(SURVEY_FILE, "w", encoding="utf-8") as f:
-                                        json.dump(entries, f, ensure_ascii=False, indent=2)
-                                    
-                                    # Notifier par email si répondu
-                                    if new_status == "Erledigt" and entry.get('email'):
-                                        st.info(f"📧 Notification à {entry['email']}")
-                                    st.rerun()
-                            
-                            with col3:
-                                if st.button("🗑️ Löschen", key=f"del_{entry['id']}"):
-                                    entries.remove(entry)
-                                    with open(SURVEY_FILE, "w", encoding="utf-8") as f:
-                                        json.dump(entries, f, ensure_ascii=False, indent=2)
-                                    st.rerun()
-                    
-                    # Export
-                    st.subheader("📥 Export")
-                    if st.button("CSV exportieren"):
-                        df = pd.DataFrame(entries)
-                        csv = df.to_csv(index=False)
-                        st.download_button(
-                            "📥 Download CSV",
-                            csv,
-                            f"feedbacks_{date.today().isoformat()}.csv",
-                            "text/csv"
-                        )
-                else:
-                    st.info("Keine Feedbacks vorhanden")
-        elif password:
-            st.error("❌ Falsches Passwort")
-# Après TAB 5, ajoute ce nouvel onglet
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📋 Aufgaben", 
-    "➕ Neue Aufgabe", 
-    "⏱️ Zeiterfassung", 
-    "📊 Analysen",
-    "🗣️ Feedback",
-    "🗑️ Papierkorb"  # Nouvel onglet
-])
+                # Dernier feedback
+                last = entries[-1]
+                st.markdown(f"""
+                **{t('name')}:** {last.get('name', 'Anonym')}  
+                **{t('urgency')}:** {last.get('urgency', 'Mittel')}  
+                **{t('feedback_text')}:** {last.get('feedback', '')[:50]}...
+                """)
 
-# ... (garde tout le code existant des tabs 1-5)
-
-# TAB 6: Papierkorb (Corbeille)
+# ==================== TAB 6: PAPIERKORB ====================
 with tab6:
-    st.header("🗑️ Papierkorb - Gelöschte Aufgaben")
+    st.header(t('recycle_bin'))
     
     recycle_bin = load_recycle_bin()
     
     if recycle_bin:
-        # Statistiques de la corbeille
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("📦 Gelöschte Aufgaben", len(recycle_bin))
+            st.metric(t('deleted_tasks'), len(recycle_bin))
         with col2:
-            # Taille estimée (en jours depuis suppression)
-            from datetime import datetime
-            ages = []
-            for task in recycle_bin:
-                if 'deleted_at' in task:
-                    deleted = datetime.strptime(task['deleted_at'], "%Y-%m-%d %H:%M:%S")
-                    days = (datetime.now() - deleted).days
-                    ages.append(days)
-            
-            if ages:
-                avg_age = sum(ages) // len(ages)
-                st.metric("⏳ Durchschnittsalter", f"{avg_age} Tage")
-            else:
-                st.metric("⏳ Durchschnittsalter", "0 Tage")
-        
-        with col3:
-            # Options de nettoyage
-            if st.button("🧹 Papierkorb leeren", use_container_width=True, type="secondary"):
-                if st.checkbox("⚠️ Wirklich alle Aufgaben endgültig löschen?"):
-                    save_recycle_bin([])
-                    st.success("🗑️ Papierkorb wurde geleert!")
-                    st.rerun()
+            if st.button("🧹 " + t('recycle_bin') + " " + t('delete'), use_container_width=True):
+                with st.popover("⚠️ " + t('delete')):
+                    st.warning(t('delete') + "?")
+                    if st.button("Ja, " + t('delete')):
+                        save_recycle_bin([])
+                        st.rerun()
         
         st.markdown("---")
         
-        # Options de filtrage
-        filter_days = st.selectbox(
-            "🔍 Filtern nach Löschdatum",
-            ["Alle", "Letzte 7 Tage", "Letzte 30 Tage", "Älter als 30 Tage"]
-        )
-        
-        # Appliquer le filtre
-        filtered_bin = recycle_bin
-        if filter_days != "Alle":
-            today = datetime.now()
-            if filter_days == "Letzte 7 Tage":
-                filtered_bin = [
-                    t for t in recycle_bin 
-                    if 'deleted_at' in t and 
-                    (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days <= 7
-                ]
-            elif filter_days == "Letzte 30 Tage":
-                filtered_bin = [
-                    t for t in recycle_bin 
-                    if 'deleted_at' in t and 
-                    (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days <= 30
-                ]
-            elif filter_days == "Älter als 30 Tage":
-                filtered_bin = [
-                    t for t in recycle_bin 
-                    if 'deleted_at' in t and 
-                    (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days > 30
-                ]
-        
-        # Afficher les tâches dans la corbeille
-        for idx, task in enumerate(filtered_bin):
-            # Calculer l'âge de la suppression
+        for idx, task in enumerate(recycle_bin):
+            # Info de suppression
             deleted_info = ""
             if 'deleted_at' in task:
-                deleted_date = datetime.strptime(task['deleted_at'], "%Y-%m-%d %H:%M:%S")
-                days_ago = (datetime.now() - deleted_date).days
-                if days_ago == 0:
-                    deleted_info = "🔸 Heute gelöscht"
-                elif days_ago == 1:
-                    deleted_info = "🔸 Gestern gelöscht"
-                else:
-                    deleted_info = f"🔸 Vor {days_ago} Tagen gelöscht"
+                try:
+                    deleted = datetime.strptime(task['deleted_at'], "%Y-%m-%d %H:%M:%S")
+                    days = (datetime.now() - deleted).days
+                    if days == 0:
+                        deleted_info = f"🔸 {t('today')}"
+                    elif days == 1:
+                        deleted_info = f"🔸 {t('yesterday')}"
+                    else:
+                        deleted_info = f"🔸 {t('deleted_at')}: {days} {t('days_ago')}"
+                except:
+                    deleted_info = f"🔸 {task['deleted_at']}"
             
-            # Carte de tâche supprimée
-            with st.container():
-                st.markdown(f"""
-                <div style="background: #2b2b2b20; border-radius: 10px; padding: 15px; margin: 10px 0; 
-                            border-left: 5px solid #ff6b6b; opacity: 0.9;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h4 style="margin:0; color: #666;">{task['title']}</h4>
-                        <span style="background: #ff6b6b; color: white; padding: 3px 10px; 
-                                   border-radius: 15px; font-size: 0.8rem;">
-                            {deleted_info}
-                        </span>
-                    </div>
-                    <p style="color: #666; margin: 5px 0;">
-                        📂 {task.get('category', 'Sonstiges')} | 
-                        🎯 {task.get('priority', 'Mittel')}
-                    </p>
-                """, unsafe_allow_html=True)
-                
-                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-                
-                with col1:
-                    # Afficher un aperçu
-                    if task.get('notes'):
-                        st.caption(f"📝 {task['notes'][:50]}...")
-                
-                with col2:
-                    # Bouton de restauration
-                    if st.button("♻️ Wiederherstellen", key=f"restore_{task['id']}_{idx}", use_container_width=True):
-                        restored_task = restore_from_recycle_bin(task['id'])
-                        if restored_task:
-                            # Ajouter à la liste principale
-                            data = load_data()
-                            
-                            # Trouver le prochain ID disponible
-                            new_id = max([t['id'] for t in data['tasks']] + [0]) + 1
-                            restored_task['id'] = new_id
-                            
-                            data['tasks'].append(restored_task)
-                            data['next_id'] = max(data['next_id'], new_id + 1)
-                            save_data(data)
-                            
-                            st.success(f"✅ Aufgabe '{restored_task['title']}' wurde wiederhergestellt!")
-                            st.rerun()
-                
-                with col3:
-                    # Bouton de suppression définitive
-                    if st.button("❌ Endgültig löschen", key=f"perm_del_{task['id']}_{idx}", use_container_width=True):
-                        permanently_delete(task['id'])
-                        st.warning(f"🗑️ Aufgabe '{task['title']}' wurde endgültig gelöscht!")
+            st.markdown(f"""
+            <div style="background: #2b2b2b10; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                <div style="display: flex; justify-content: space-between;">
+                    <h4>{task.get('title', '')}</h4>
+                    <span style="color: #666;">{deleted_info}</span>
+                </div>
+                <p>📂 {task.get('category', '')} | 🎯 {task.get('priority', '')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(t('restore'), key=f"restore_{task.get('id', idx)}", use_container_width=True):
+                    restored = restore_from_recycle_bin(task['id'])
+                    if restored:
+                        data = load_data()
+                        new_id = max([t.get('id', 0) for t in data['tasks']] + [0]) + 1
+                        restored['id'] = new_id
+                        data['tasks'].append(restored)
+                        data['next_id'] = max(data.get('next_id', 1), new_id + 1)
+                        save_data(data)
                         st.rerun()
-                
-                with col4:
-                    # Détails supplémentaires
-                    with st.popover("ℹ️ Details"):
-                        st.markdown(f"""
-                        **ID:** {task['id']}  
-                        **Kategorie:** {task.get('category', 'N/A')}  
-                        **Priorität:** {task.get('priority', 'N/A')}  
-                        **Geschätzte Zeit:** {task.get('estimated_time', 0)} min  
-                        **Verbrauchte Zeit:** {task.get('total_time_spent', 0)} min  
-                        **Frist:** {task.get('deadline', 'Keine')}  
-                        **Gelöscht am:** {task.get('deleted_at', 'Unbekannt')}
-                        """)
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Option de vidage sélectif
-        st.markdown("---")
-        with st.expander("⚙️ Erweiterte Optionen"):
-            col_a, col_b, col_c = st.columns(3)
             
-            with col_a:
-                if st.button("🗑️ Älter als 30 Tage löschen", use_container_width=True):
-                    today = datetime.now()
-                    recycle_bin = load_recycle_bin()
-                    new_bin = [
-                        t for t in recycle_bin 
-                        if 'deleted_at' not in t or 
-                        (today - datetime.strptime(t['deleted_at'], "%Y-%m-%d %H:%M:%S")).days <= 30
-                    ]
-                    save_recycle_bin(new_bin)
-                    st.success("✅ Alte Einträge wurden gelöscht!")
+            with col2:
+                if st.button(t('permanent_delete'), key=f"perm_{task.get('id', idx)}", use_container_width=True):
+                    permanently_delete(task['id'])
                     st.rerun()
             
-            with col_b:
-                if st.button("📦 Als JSON exportieren", use_container_width=True):
-                    export_data = json.dumps(recycle_bin, indent=2, ensure_ascii=False)
-                    st.download_button(
-                        "📥 Download JSON",
-                        export_data,
-                        f"papierkorb_{date.today().isoformat()}.json",
-                        "application/json"
-                    )
-            
-            with col_c:
-                if st.button("📊 Statistiken anzeigen", use_container_width=True):
-                    # Analyse de la corbeille
-                    df_bin = pd.DataFrame(recycle_bin)
-                    if not df_bin.empty and 'deleted_at' in df_bin.columns:
-                        df_bin['deleted_date'] = pd.to_datetime(df_bin['deleted_at']).dt.date
-                        deletion_by_day = df_bin.groupby('deleted_date').size()
-                        
-                        st.line_chart(deletion_by_day)
+            st.divider()
     
     else:
-        # Corbeille vide - affichage stylisé
-        st.markdown("""
-        <div style="text-align: center; padding: 50px; background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%); 
-                    border-radius: 20px; margin: 20px 0;">
-            <h1 style="font-size: 5rem; margin: 0;">🗑️</h1>
-            <h3 style="color: #666;">Der Papierkorb ist leer</h3>
-            <p style="color: #999;">Gelöschte Aufgaben erscheinen hier und können wiederhergestellt werden.</p>
+        st.markdown(f"""
+        <div style="text-align: center; padding: 50px;">
+            <h1 style="font-size: 4rem;">🗑️</h1>
+            <h3>{t('empty_bin')}</h3>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Animation optionnelle
-        if st.button("🎮 Demo: Beispiel-Aufgabe löschen"):
-            # Créer une tâche exemple dans la corbeille pour la démo
-            demo_task = {
-                "id": 999,
-                "title": "Beispielaufgabe für Demo",
-                "category": "Demo",
-                "priority": "Niedrig",
-                "deadline": "2024-12-31",
-                "notes": "Diese Aufgabe dient als Beispiel",
-                "estimated_time": 30,
-                "total_time_spent": 15,
-                "deleted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            save_recycle_bin([demo_task])
-            st.rerun()
