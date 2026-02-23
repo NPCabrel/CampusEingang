@@ -585,80 +585,212 @@ with tab4:
             category_counts = pd.DataFrame(data["tasks"])["category"].value_counts()
             fig = px.pie(values=category_counts.values, names=category_counts.index,
                         color_discrete_sequence=px.colors.sequential.RdBu)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Progression
-            st.subheader("Fortschritt")
-            done_count = len([t for t in data["tasks"] if t.get("done", False)])
-            total_count = len(data["tasks"])
+            st.p
             
-            fig = go.Figure(go.Indicator(
-                mode = "gauge+number",
-                value = done_count/total_count*100 if total_count > 0 else 0,
-                title = {'text': "Erledigt (%)"},
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                gauge = {
-                    'axis': {'range': [None, 100]},
-                    'bar': {'color': "#667eea"},
-                    'steps': [
-                        {'range': [0, 50], 'color': "#feca57"},
-                        {'range': [50, 80], 'color': "#48dbfb"},
-                        {'range': [80, 100], 'color': "#1dd1a1"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 90
-                    }
-                }
-            ))
-            fig.update_layout(height=250)
-            st.plotly_chart(fig, use_container_width=True)
+# TAB 4: Analysen (VERSION CORRIGÉE)
+with tab4:
+    st.header("📊 Detaillierte Analysen")
+    
+    data = load_data()
+    today = date.today()
+    
+    if data["tasks"]:
+        # Créer un DataFrame sécurisé
+        tasks_list = []
+        for task in data["tasks"]:
+            # S'assurer que toutes les clés existent
+            safe_task = {
+                "title": task.get("title", "Sans titre"),
+                "category": task.get("category", "Sonstiges"),
+                "priority": task.get("priority", "Mittel"),
+                "estimated_time": task.get("estimated_time", 60),
+                "total_time_spent": task.get("total_time_spent", 0),
+                "done": task.get("done", False),
+                "deadline": task.get("deadline", ""),
+                "notes": task.get("notes", "")
+            }
+            tasks_list.append(safe_task)
         
-        # Graphique du temps par tâche
-        if time_entries:
-            st.subheader("⏱️ Temps passé par tâche")
-            task_time = pd.DataFrame(time_entries).groupby('task_title')['duration_minutes'].sum().sort_values(ascending=False).head(10)
-            
-            fig = px.bar(
-                x=task_time.values, 
-                y=task_time.index,
-                orientation='h',
-                title='Top 10 Aufgaben nach Zeit',
-                labels={'x': 'Minuten', 'y': ''},
-                color=task_time.values,
-                color_continuous_scale=['#48dbfb', '#1dd1a1', '#feca57', '#ff6b6b']
-            )
-            fig.update_layout(showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+        tasks_df = pd.DataFrame(tasks_list)
         
-        # Tableau des tâches avec performance
-        st.subheader("📋 Performance-Analyse")
-        tasks_df = pd.DataFrame(data["tasks"])
+        # Ajouter les colonnes calculées
         tasks_df['Effizienz'] = tasks_df.apply(
-            lambda x: f"{min(100, int(x.get('total_time_spent', 0)/x.get('estimated_time', 1)*100))}%" 
-            if x.get('estimated_time', 0) > 0 else "0%", 
+            lambda x: f"{min(100, int(x['total_time_spent'] / max(x['estimated_time'], 1) * 100))}%", 
             axis=1
         )
         tasks_df['Status'] = tasks_df['done'].apply(lambda x: "✅ Erledigt" if x else "🔄 Offen")
         
-        st.dataframe(
-            tasks_df[['title', 'category', 'priority', 'estimated_time', 'total_time_spent', 'Effizienz', 'Status']],
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "title": "Aufgabe",
-                "category": "Kategorie",
-                "priority": "Priorität",
-                "estimated_time": "Geschätzt (min)",
-                "total_time_spent": "Verbraucht (min)",
-                "Effizienz": "Effizienz",
-                "Status": "Status"
-            }
+        # Graphiques
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Graphique catégories
+            st.subheader("📊 Aufgaben nach Kategorie")
+            if not tasks_df.empty:
+                category_counts = tasks_df['category'].value_counts()
+                fig = px.pie(
+                    values=category_counts.values, 
+                    names=category_counts.index,
+                    title="Verteilung nach Kategorie",
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Keine Daten verfügbar")
+        
+        with col2:
+            # Progression globale
+            st.subheader("📈 Fortschritt")
+            done_count = len(tasks_df[tasks_df['done']])
+            total_count = len(tasks_df)
+            
+            if total_count > 0:
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number+delta",
+                    value=done_count,
+                    number={'prefix': "✅ "},
+                    delta={'reference': total_count, 'valueformat': '.0f'},
+                    title={'text': f"Erledigte Aufgaben von {total_count}"},
+                    gauge={
+                        'axis': {'range': [None, total_count]},
+                        'bar': {'color': "#4CAF50"},
+                        'steps': [
+                            {'range': [0, total_count/2], 'color': "#FFB74D"},
+                            {'range': [total_count/2, total_count], 'color': "#81C784"}
+                        ],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': total_count
+                        }
+                    }
+                ))
+                fig.update_layout(height=300)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Keine Aufgaben vorhanden")
+        
+        # Statistiques supplémentaires
+        st.subheader("📋 Statistiques détaillées")
+        
+        # Métriques en ligne
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        with col_m1:
+            total_time_all = tasks_df['total_time_spent'].sum()
+            st.metric(
+                "⏱️ Temps total",
+                f"{int(total_time_all)} min",
+                f"{total_time_all/60:.1f}h"
+            )
+        
+        with col_m2:
+            avg_time_per_task = tasks_df['total_time_spent'].mean()
+            st.metric(
+                "📊 Moyenne par tâche",
+                f"{int(avg_time_per_task)} min"
+            )
+        
+        with col_m3:
+            overdue_count = len([
+                t for t in data["tasks"] 
+                if not t.get("done", False) 
+                and t.get("deadline", "9999") < today.strftime("%Y-%m-%d")
+            ])
+            st.metric(
+                "⚠️ Überfällig",
+                overdue_count,
+                delta_color="inverse"
+            )
+        
+        with col_m4:
+            high_priority = len([t for t in data["tasks"] if t.get("priority") == "Hoch"])
+            st.metric(
+                "🔥 Hohe Priorität",
+                high_priority
+            )
+        
+        # Tableau des tâches (VERSION CORRIGÉE)
+        st.subheader("📋 Liste détaillée des tâches")
+        
+        # Sélectionner seulement les colonnes qui existent
+        display_columns = []
+        column_config = {}
+        
+        # Définir les colonnes à afficher avec leurs configurations
+        columns_to_show = [
+            ("title", "Tâche"),
+            ("category", "Catégorie"),
+            ("priority", "Priorité"),
+            ("estimated_time", "Estimé (min)"),
+            ("total_time_spent", "Passé (min)"),
+            ("Effizienz", "Efficacité"),
+            ("Status", "Statut")
+        ]
+        
+        for col, label in columns_to_show:
+            if col in tasks_df.columns:
+                display_columns.append(col)
+                column_config[col] = label
+        
+        if display_columns:
+            st.dataframe(
+                tasks_df[display_columns],
+                use_container_width=True,
+                hide_index=True,
+                column_config={col: col for col in display_columns}  # Simplifié
+            )
+        
+        # Graphique d'efficacité
+        st.subheader("📊 Analyse d'efficacité")
+        
+        # Préparer les données pour le graphique
+        chart_df = tasks_df.copy()
+        chart_df['efficacite_num'] = chart_df.apply(
+            lambda x: min(100, int(x['total_time_spent'] / max(x['estimated_time'], 1) * 100)),
+            axis=1
         )
+        
+        # Graphique en barres
+        fig = px.bar(
+            chart_df,
+            x='title',
+            y='efficacite_num',
+            color='category',
+            title="Efficacité par tâche (%)",
+            labels={'title': 'Tâche', 'efficacite_num': 'Efficacité (%)', 'category': 'Catégorie'},
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Export des données
+        st.subheader("📥 Export des données")
+        if st.button("📥 Exporter en CSV"):
+            csv = tasks_df.to_csv(index=False)
+            st.download_button(
+                "📥 Télécharger CSV",
+                csv,
+                f"campus_daten_{date.today().isoformat()}.csv",
+                "text/csv",
+                key='download-csv'
+            )
+    
     else:
-        st.info("📊 Keine Daten für Analysen vorhanden.")
+        st.info("📊 Keine Daten für Analysen vorhanden. Erstelle zuerst Aufgaben!")
+        
+        # Afficher un exemple
+        with st.expander("ℹ️ Comment ça marche ?"):
+            st.markdown("""
+            **Cette page d'analyse te permet de :**
+            - 📊 Visualiser la répartition de tes tâches
+            - ⏱️ Suivre ton temps de travail
+            - 📈 Évaluer ton efficacité
+            - 📥 Exporter tes données
+            
+            Commence par créer des tâches dans l'onglet **➕ Neue Aufgabe** !
+            """)
 
 # TAB 5: Feedback
 # Imports supplémentaires en haut du fichier
