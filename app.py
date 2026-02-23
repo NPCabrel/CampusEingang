@@ -56,7 +56,11 @@ def main():
     with tab1:
         st.header("Meine Aufgaben")
         data = load_data()
-        
+    
+    # Initialiser l'état de suppression
+    if 'delete_task_id' not in st.session_state:
+        st.session_state.delete_task_id = None
+    
     # Afficher les tâches
     if data["tasks"]:
         df = pd.DataFrame(data["tasks"])
@@ -80,13 +84,11 @@ def main():
         # Afficher chaque tâche
         for idx, task in df.iterrows():
             with st.container():
-                cols = st.columns([0.05, 0.5, 0.2, 0.1, 0.1])
+                cols = st.columns([0.05, 0.5, 0.2, 0.15, 0.1])
                 
                 with cols[0]:
-                    # Checkbox pour "done"
                     done = st.checkbox("", value=task.get("done", False), key=f"done_{task['id']}")
                     if done != task.get("done", False):
-                        # Mettre à jour le statut
                         data = load_data()
                         for t in data["tasks"]:
                             if t["id"] == task["id"]:
@@ -99,9 +101,7 @@ def main():
                     st.subheader(task["title"])
                     st.caption(f"📂 {task['category']} | 📅 {task['deadline']}")
                     if task.get("notes"):
-                        st.info(task["notes"])
-                    if task.get("link"):
-                        st.markdown(f"[🔗 Link]({task['link']})")
+                        st.caption(f"📝 {task['notes']}")
                 
                 with cols[2]:
                     if task.get("overdue"):
@@ -116,27 +116,67 @@ def main():
                             st.success(f"🟢 {days_left} Tage")
                 
                 with cols[3]:
-                    # Bouton d'édition (à implémenter)
-                    if st.button("✏️", key=f"edit_{task['id']}"):
-                        st.info("Édition à implémenter")
+                    if st.button("🔧 Bearbeiten", key=f"edit_btn_{task['id']}"):
+                        st.session_state.edit_task_id = task["id"]
+                        st.rerun()
                 
                 with cols[4]:
-                    # BOUTON DE SUPPRESSION
-                    if st.button("🗑️", key=f"delete_{task['id']}"):
-                        # Demander confirmation
-                        if st.checkbox(f"Sûr de supprimer '{task['title']}'?", key=f"confirm_{task['id']}"):
-                            # Supprimer la tâche
-                            data = load_data()
-                            data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
-                            save_data(data)
-                            st.success(f"Aufgabe '{task['title']}' gelöscht!")
-                            st.rerun()
+                    if st.button("🗑️ Löschen", key=f"delete_btn_{task['id']}"):
+                        st.session_state.delete_task_id = task["id"]
+                        st.rerun()
+                
+                # Formulaire d'édition (si ce bouton a été cliqué)
+                if 'edit_task_id' in st.session_state and st.session_state.edit_task_id == task["id"]:
+                    with st.form(key=f"edit_form_{task['id']}"):
+                        st.subheader(f"Bearbeite: {task['title']}")
+                        new_title = st.text_input("Titel", value=task["title"])
+                        new_category = st.text_input("Kategorie", value=task["category"])
+                        new_deadline = st.date_input("Frist", value=datetime.strptime(task["deadline"], "%Y-%m-%d").date() if task["deadline"] else date.today())
+                        new_notes = st.text_area("Notizen", value=task.get("notes", ""))
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.form_submit_button("💾 Speichern"):
+                                # Mettre à jour
+                                data = load_data()
+                                for t in data["tasks"]:
+                                    if t["id"] == task["id"]:
+                                        t["title"] = new_title
+                                        t["category"] = new_category
+                                        t["deadline"] = new_deadline.strftime("%Y-%m-%d")
+                                        t["notes"] = new_notes
+                                        break
+                                save_data(data)
+                                st.session_state.edit_task_id = None
+                                st.success("Aufgabe aktualisiert!")
+                                st.rerun()
+                        with col2:
+                            if st.form_submit_button("❌ Abbrechen"):
+                                st.session_state.edit_task_id = None
+                                st.rerun()
+                
+                # Popup de confirmation de suppression
+                if st.session_state.delete_task_id == task["id"]:
+                    with st.container():
+                        st.warning(f"⚠️ Bist du sicher, dass du die Aufgabe **'{task['title']}'** löschen möchtest?")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("Ja, löschen", key=f"confirm_delete_{task['id']}"):
+                                data = load_data()
+                                data["tasks"] = [t for t in data["tasks"] if t["id"] != task["id"]]
+                                save_data(data)
+                                st.session_state.delete_task_id = None
+                                st.success("Aufgabe gelöscht!")
+                                st.rerun()
+                        with col2:
+                            if st.button("Nein, abbrechen", key=f"cancel_delete_{task['id']}"):
+                                st.session_state.delete_task_id = None
+                                st.rerun()
                 
                 st.divider()
     
     else:
         st.info("Keine Aufgaben vorhanden.")
-    
     with tab2:
         st.header("Neue Aufgabe hinzufügen")
         
